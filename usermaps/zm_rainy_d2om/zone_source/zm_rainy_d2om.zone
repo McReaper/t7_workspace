@@ -1,0 +1,18 @@
+>class,zm_mod_level
+>group,modtools
+
+xmodel,skybox_default_day
+material,luts_t7_default
+	
+// BSP
+col_map,maps/zm/zm_rainy_d2om.d3dbsp
+gfx_map,maps/zm/zm_rainy_d2om.d3dbsp
+
+// Audio
+sound,zm_rainy_d2om
+
+scriptparsetree,scripts/zm/zm_rainy_d2om.gsc
+scriptparsetree,scripts/zm/zm_rainy_d2om.csc
+
+	
+	
