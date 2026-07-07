@@ -1,0 +1,186 @@
+#include "lit_base_shaders"
+
+// ============================================================================
+//  cam_bodycam.techsetdef  —  techset for the bodycam camera filter.
+//  Cloned from postfx/fisheye.techsetdef. Binds the fullscreen scene to
+//  CodeTexture("resolvedScene") and maps each shader constant to a material
+//  register (cg00.* / cg01.*) so the look is tunable in APE.
+//  materialType of the material that uses this MUST be "cam_bodycam".
+// ============================================================================
+
+Globals()
+{
+	category = "2d"
+	#if TOOLSGFX != "1"
+	renderFlags = "none"
+	#else
+	renderFlags = RenderFlags()
+	{
+		isOpaque = true
+	}
+	#endif
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+Sampler( "bilinearClampler" )
+{
+	tile   = "no tile"
+	filter = "linear (mip none)"
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+Texture( "sceneTexture" )
+{
+	image    = Image( <colorMap00, $white_diffuse> )
+	semantic = "2d"
+	tweak    = Tweak()
+	{
+		category	= "Bodycam"
+		title		= "Preview Scene"
+		sortindex	= "5"
+	}
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -  Fisheye
+
+float1( "fisheyeRadius" )
+{
+	x = <cg00_x>
+	tweak = Tweak()
+	{
+		category  = "Bodycam"
+		title     = "Fisheye Radius"
+		sortindex = "10"
+		default   = "1.3"
+		range     = "0.0", "5.0", "0.01"
+	}
+}
+
+float1( "fisheyeDensity" )
+{
+	x = <cg00_y>
+	tweak = Tweak()
+	{
+		category  = "Bodycam"
+		title     = "Fisheye Density"
+		sortindex = "11"
+		default   = "1.2"
+		range     = "0.0", "5.0", "0.01"
+	}
+}
+
+float1( "fisheyeIntensity" )
+{
+	x = <cg00_z>
+	tweak = Tweak()
+	{
+		category  = "Bodycam"
+		title     = "Fisheye Intensity"
+		sortindex = "12"
+		default   = "0.22"
+		range     = "0.0", "4.0", "0.01"
+	}
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -  Vignette
+
+float1( "vignetteStrength" )
+{
+	x = <cg00_w>
+	tweak = Tweak()
+	{
+		category  = "Bodycam"
+		title     = "Vignette Strength"
+		sortindex = "20"
+		default   = "0.5"
+		range     = "0.0", "1.0", "0.01"
+	}
+}
+
+float1( "vignetteRadius" )
+{
+	x = <cg01_x>
+	tweak = Tweak()
+	{
+		category  = "Bodycam"
+		title     = "Vignette Radius"
+		sortindex = "21"
+		default   = "0.95"
+		range     = "0.0", "5.0", "0.01"
+	}
+}
+
+float1( "vignetteDensity" )
+{
+	x = <cg01_y>
+	tweak = Tweak()
+	{
+		category  = "Bodycam"
+		title     = "Vignette Density"
+		sortindex = "22"
+		default   = "1.4"
+		range     = "0.0", "5.0", "0.01"
+	}
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -  Chromatic Aberration
+
+float1( "chromaticStrength" )
+{
+	x = <cg01_z>
+	tweak = Tweak()
+	{
+		category  = "Bodycam"
+		title     = "Chromatic Aberration"
+		sortindex = "30"
+		default   = "0.0035"
+		range     = "0.0", "0.1", "0.0001"
+	}
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -  Film Grain
+
+float1( "grainStrength" )
+{
+	x = <cg01_w>
+	tweak = Tweak()
+	{
+		category  = "Bodycam"
+		title     = "Film Grain"
+		sortindex = "40"
+		default   = "0.06"
+		range     = "0.0", "0.5", "0.001"
+	}
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+float1( "grainScale" )
+{
+	x = <cg02_x>
+	tweak = Tweak()
+	{
+		category  = "Bodycam"
+		title     = "Film Grain Size (lower = coarser)"
+		sortindex = "41"
+		default   = "300"
+		range     = "40", "1080", "1"
+	}
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+Technique( "lit", "unlit" )
+{
+	state = "replace + nocull"
+	source = "postfx/cam_bodycam.hlsl"
+	vs = "vs_generic"
+	ps = PixelShader()
+	{
+		#if TOOLSGFX != "1"
+		sceneTexture = CodeTexture( "resolvedScene" )
+		#endif
+	}
+}

@@ -14,5 +14,9 @@ sound,zm_rainy_d2om
 scriptparsetree,scripts/zm/zm_rainy_d2om.gsc
 scriptparsetree,scripts/zm/zm_rainy_d2om.csc
 
+// Bodycam camera filter
+scriptparsetree,scripts/zm/_cam_bodycam.csc
+material,filter_cam_bodycam
+
 	
 	
