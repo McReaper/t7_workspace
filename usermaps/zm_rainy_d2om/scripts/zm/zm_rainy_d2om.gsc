@@ -26,7 +26,7 @@
 
 #using scripts\shared\ai\zombie_utility;
 
-//Perks
+// Perks
 #using scripts\zm\_zm_pack_a_punch;
 #using scripts\zm\_zm_pack_a_punch_util;
 #using scripts\zm\_zm_perk_additionalprimaryweapon;
@@ -37,7 +37,7 @@
 #using scripts\zm\_zm_perk_sleight_of_hand;
 #using scripts\zm\_zm_perk_staminup;
 
-//Powerups
+// Powerups
 #using scripts\zm\_zm_powerup_double_points;
 #using scripts\zm\_zm_powerup_carpenter;
 #using scripts\zm\_zm_powerup_fire_sale;
@@ -45,40 +45,53 @@
 #using scripts\zm\_zm_powerup_full_ammo;
 #using scripts\zm\_zm_powerup_insta_kill;
 #using scripts\zm\_zm_powerup_nuke;
-//#using scripts\zm\_zm_powerup_weapon_minigun;
 
-//Traps
+// Traps
 #using scripts\zm\_zm_trap_electric;
 
 #using scripts\zm\zm_usermap;
 
-//*****************************************************************************
+// Bodycam camera mod (feature: _cam_bodycam.gsc/.csc, config: _cam_bodycam.gsh).
+#using scripts\zm\_cam_bodycam;
+
+// *****************************************************************************
 // MAIN
-//*****************************************************************************
+// *****************************************************************************
 
 function main()
 {
-	zm_usermap::main();
-	
-	level._zombie_custom_add_weapons =&custom_add_weapons;
-	
-	//Setup the levels Zombie Zone Volumes
-	level.zones = [];
-	level.zone_manager_init_func =&usermap_test_zone_init;
-	init_zones[0] = "start_zone";
-	level thread zm_zonemgr::manage_zones( init_zones );
+    zm_usermap::main();
 
-	level.pathdist_type = PATHDIST_ORIGINAL;
+    level._zombie_custom_add_weapons = &custom_add_weapons;
+
+    // Set up the level's zombie zone volumes.
+    level.zones = [];
+    level.zone_manager_init_func = &usermap_test_zone_init;
+    init_zones[0] = "start_zone";
+    level thread zm_zonemgr::manage_zones(init_zones);
+
+    level.pathdist_type = PATHDIST_ORIGINAL;
+
+    // Bodycam demo: spawn a runtime interference source at the "bodycam_test"
+    // point. Real events call cam_bodycam::spawn_interference_source(origin, ...).
+    bodycam_ref = struct::get("bodycam_test", "targetname");
+    if (!isdefined(bodycam_ref))
+    {
+        bodycam_ref = GetEnt("bodycam_test", "targetname");
+    }
+    if (isdefined(bodycam_ref))
+    {
+        cam_bodycam::spawn_interference_source(bodycam_ref.origin, 400, true);
+    }
 }
 
 function usermap_test_zone_init()
 {
-	level flag::init( "always_on" );
-	level flag::set( "always_on" );
-}	
+    level flag::init("always_on");
+    level flag::set("always_on");
+}
 
 function custom_add_weapons()
 {
-	zm_weapons::load_weapon_spec_from_table("gamedata/weapons/zm/zm_levelcommon_weapons.csv", 1);
+    zm_weapons::load_weapon_spec_from_table("gamedata/weapons/zm/zm_levelcommon_weapons.csv", 1);
 }
-

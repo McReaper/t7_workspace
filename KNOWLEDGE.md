@@ -173,6 +173,46 @@ To have theater mode working in custom zombie maps, there a few pre-requisites, 
   - You can use bo3 tool to tweak the camera settings.
 
 
+## Custom postfx filters (script-driven constants)
+
+A custom fullscreen postfx = a HLSL shader (`share\raw\shaders_stable\postfx\*.hlsl`) + a techsetdef (`share\raw\techsetdefs_stable\postfx\*.techsetdef` and a `_toolsgfx` twin) + a `2d` material whose `materialType` matches, applied client-side (CSC) with the `filter::` API: `filter::map_material_helper` → `setfilterpassmaterial` → `setfilterpassenabled`. Base look is tuned in APE. To animate it from script each frame you call `SetFilterPassConstant`.
+
+### THE trap that cost me days: material `<cgNN>` constants ≠ script vectors
+
+There are **two physically different constant buffers** that share the same "cgN ↔ scriptVectorN" numbering:
+
+- **Material constants** — what you get when the techsetdef declares `float1("foo") { x = <cg03_x> tweak = Tweak(){...} }`. The value comes from the **material** (APE / GDT `cg03_x`). Renders fine. **`SetFilterPassConstant` does NOT touch it.**
+- **Script vectors** — `float4 scriptVector0..7` in `cbuffer GenericsCBuffer : register(b3)` (defined in [`code\hlslcodeconstantbuffers.h`](.\share\raw\shaders_stable\code\hlslcodeconstantbuffers.h), `packoffset(c0..c7)`). This is **exactly** what `SetFilterPassConstant` writes.
+
+So a shader value is script-drivable **only if the shader reads `scriptVectorN` directly**. If it reads a material `<cgNN>` constant, `SetFilterPassConstant` has zero visible effect **no matter what index or filter slot you use** — the base look still shows (material side), but nothing you push ever arrives. This is silent; no error.
+
+Fix pattern in the shader:
+```hlsl
+// NOT: float vignetteDynamic;   // <cg03_x> in the techsetdef  -> material, dead to script
+#if !TOOLSGFX
+    float vignetteDynamic = scriptVector3.x;   // reads GenericsCBuffer -> SetFilterPassConstant works
+#endif
+```
+And **do not** declare those constants in the techsetdef (no `<cgNN>` + Tweak for them). Shipped proof: [`2d\tactical_damage.techsetdef`](.\share\raw\techsetdefs_stable\2d\tactical_damage.techsetdef) declares its APE constants at cg01/cg02 and leaves cg00 undeclared — its script-driven "amount" (index 0) is read from `scriptVector0` in the shader. A modder put it as *"scriptVectors are defined inside the shader itself."*
+
+### Index math for `SetFilterPassConstant`
+
+`SetFilterPassConstant(localClientNum, filterIndex, passIndex, constantIndex, value)` where **`constantIndex = scriptVectorN * 4 + component`** (x/y/z/w = 0/1/2/3). So scriptVector0.x = 0, scriptVector1.x = 4, … scriptVector3.x = **12**, scriptVector3.w = 15, up to scriptVector7.x = 28. See [`scripts\postfx\_filters.gsh`](.\share\raw\scripts\postfx\_filters.gsh) (`SCRIPT_VECTOR_0..7`, `SCRIPT_VECTOR_X/Y/Z/W`) and `gfx_shared.csc::getShaderConstantIndex`.
+
+### Other gotchas
+
+- **Filter slot**: the API doc says `filterIndex` must be 0-3, but that's understated — `setfilterpassmaterial`/`setfilterpassenabled` work on higher slots, and slot **7** drives constants fine in a zombies map (Scobalula's raindrops postfx uses `FILTER_ID 7`). Slots 0-5 are taken by overlays/water/EMP/blood/environment; 7 = `FILTER_INDEX_BONUSZM` (free in a custom usermap).
+- **Framebuffer must be `resolvedScene`** in the techsetdef technique (`sceneTexture = CodeTexture("resolvedScene")`), not `resolvedPostSun`, for the filter to work in-game.
+- **`saturate()` trap**: if the shader does `lerp(1, vig, saturate(baseStrength + dynamic))` and `baseStrength` is already `1.0` in the material, your `dynamic` push does **nothing** (already clamped). Grain added *outside* a saturate shows up; a "boost" clamped by a maxed base won't. Lower the base value in APE to give the dynamic headroom.
+- **Recompiling**: editing the `.hlsl`/techsetdef needs a **shader + material recompile**, not just a script relink. A stale shader binary silently ignores newly-added constants.
+
+### Diagnostic tricks
+
+- Blink the whole filter from the CSC loop with `setfilterpassenabled(lcn, id, 0, blink)` — if it flashes, your updater thread runs and the filter is applied (isolates thread/slot from the constant problem).
+- Drive **grain** (or any effect added without `saturate`) to a big value in a 1s on/off square wave — an unmissable binary "does the constant arrive" test. A subtle vignette-strength change is easy to misread as "nothing happens".
+
+> Sources: raw install ([`code\hlslcodeconstantbuffers.h`](.\share\raw\shaders_stable\code\hlslcodeconstantbuffers.h), `_filters.gsh/.csc`, `tactical_damage.techsetdef`, `posterization`/`chromatic_aberration_postfx`); t7kb (gscode API, LG-RZ BlackOps3Shaders, Scobalula raindrops, bo3modtools Discord). Discovered debugging the `zm_rainy_d2om` bodycam vignette.
+
 ## Troubleshoot
 
 When booting game after a successful linking of the scripts in the tools, and having error: *`Error linking script: "blabla.gsc"`*, usually it means one script file is missing from zone file. It mostly does this because link step does the linkage with zoned files, not files from the folder AFAIK.

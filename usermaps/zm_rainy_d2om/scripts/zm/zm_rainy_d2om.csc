@@ -12,7 +12,7 @@
 #using scripts\zm\_load;
 #using scripts\zm\_zm_weapons;
 
-//Perks
+// Perks
 #using scripts\zm\_zm_pack_a_punch;
 #using scripts\zm\_zm_perk_additionalprimaryweapon;
 #using scripts\zm\_zm_perk_doubletap2;
@@ -22,7 +22,7 @@
 #using scripts\zm\_zm_perk_sleight_of_hand;
 #using scripts\zm\_zm_perk_staminup;
 
-//Powerups
+// Powerups
 #using scripts\zm\_zm_powerup_double_points;
 #using scripts\zm\_zm_powerup_carpenter;
 #using scripts\zm\_zm_powerup_fire_sale;
@@ -31,21 +31,24 @@
 #using scripts\zm\_zm_powerup_insta_kill;
 #using scripts\zm\_zm_powerup_nuke;
 
-//Traps
+// Traps
 #using scripts\zm\_zm_trap_electric;
 
 #using scripts\zm\zm_usermap;
 
+// Bodycam camera mod — client half in _cam_bodycam.csc, config in _cam_bodycam.gsh.
+#using scripts\zm\_cam_bodycam;
+
 function main()
 {
-	zm_usermap::main();
+    zm_usermap::main();
 
-	include_weapons();
-	
-	util::waitforclient( 0 );
+    include_weapons();
+
+    util::waitforclient(0);
 }
 
 function include_weapons()
 {
-	zm_weapons::load_weapon_spec_from_table("gamedata/weapons/zm/zm_levelcommon_weapons.csv", 1);
+    zm_weapons::load_weapon_spec_from_table("gamedata/weapons/zm/zm_levelcommon_weapons.csv", 1);
 }
