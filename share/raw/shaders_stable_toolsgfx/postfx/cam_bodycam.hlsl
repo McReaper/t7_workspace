@@ -36,6 +36,19 @@ float chromaticStrength;  // per-channel UV split amount at the edges
 float grainStrength;      // amount of noise added to the image
 float grainScale;         // grain cells across the screen (lower = coarser/bigger)
 
+// --- Script-driven dynamics ---
+//  SetFilterPassConstant writes the GenericsCBuffer "scriptVectorN" registers
+//  (see code/hlslcodeconstantbuffers.h) -- a DIFFERENT constant buffer from the
+//  material's APE-tuned <cgNN> constants. A shader value only responds to
+//  SetFilterPassConstant if it reads scriptVectorN directly; a material <cgNN>
+//  constant does not (it comes from the material, not the script). So the
+//  dynamics are read from scriptVector3 inside ps_main and are intentionally NOT
+//  declared as material constants in the techsetdef:
+//     scriptVector3.x (constant index 12) - extra vignette strength
+//     scriptVector3.y (constant index 13) - extra grain strength (event glitches)
+//     scriptVector3.z (constant index 14) - vignette centre shift X
+//     scriptVector3.w (constant index 15) - vignette centre shift Y
+
 #if TOOLSGFX
 
 SamplerState bilinearClampler : register(s0);
@@ -83,6 +96,20 @@ float4 ps_main(const PixelInput pixel) : SV_TARGET
 
 	PostFx_FixPreviewResolution(pixel.position.xy, texCoords);
 
+	// Script-driven dynamics come from scriptVector3 (written by SetFilterPassConstant).
+	// In the APE tools preview no script runs, so keep them at rest there.
+#if TOOLSGFX
+	float vignetteDynamic = 0.0;
+	float grainDynamic    = 0.0;
+	float vignetteOffsetX = 0.0;
+	float vignetteOffsetY = 0.0;
+#else
+	float vignetteDynamic = scriptVector3.x;
+	float grainDynamic    = scriptVector3.y;
+	float vignetteOffsetX = scriptVector3.z;
+	float vignetteOffsetY = scriptVector3.w;
+#endif
+
 	// --- 1) Fisheye: warp UVs toward the centre (identical math to fisheye.hlsl) ---
 	float fishGradient = RadialGradientExponential(texCoords, 0.5, fisheyeRadius, fisheyeDensity, false);
 	float2 uv = texCoords - ((texCoords - 0.5) * fishGradient * fisheyeIntensity);
@@ -98,9 +125,11 @@ float4 ps_main(const PixelInput pixel) : SV_TARGET
 	color.g = sceneTexture.Sample(bilinearClampler, uv).g;
 	color.b = sceneTexture.Sample(bilinearClampler, uv - caOffset).b;
 
-	// --- 3) Vignette: darken toward the edges (1 at centre -> vig at edge) ---
-	float vig = RadialGradientExponential(texCoords, 0.5, vignetteRadius, vignetteDensity, false);
-	float vigFactor = lerp(1.0, vig, saturate(vignetteStrength));
+	// --- 3) Vignette: darken toward the edges (1 at centre -> vig at edge).
+	//        Centre and strength take the script-driven offset/boost on top. ---
+	float2 vigCenter = float2(0.5 + vignetteOffsetX, 0.5 + vignetteOffsetY);
+	float  vig       = RadialGradientExponential(texCoords, vigCenter, vignetteRadius, vignetteDensity, false);
+	float  vigFactor = lerp(1.0, vig, saturate(vignetteStrength + vignetteDynamic));
 	color *= vigFactor;
 
 	// --- 4) Film grain: noise quantised into cells so the grains are chunkier
@@ -113,7 +142,7 @@ float4 ps_main(const PixelInput pixel) : SV_TARGET
 	float2 cell      = floor(grainXY * grainScale);
 	float2 seed      = (cell + grainStep * float2(37.0, 17.0)) / max(grainScale, 1.0);
 	float  n         = Random2D(seed);
-	color *= 1.0 + (n - 0.5) * grainStrength;
+	color *= 1.0 + (n - 0.5) * (grainStrength + grainDynamic);
 
 	#if TOOLSGFX
 	color = LinearToSRGB(color);

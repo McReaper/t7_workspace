@@ -51,6 +51,9 @@
 
 #using scripts\zm\zm_usermap;
 
+// Bodycam camera mod (feature: _cam_bodycam.gsc/.csc, config: _cam_bodycam.gsh).
+#using scripts\zm\_cam_bodycam;
+
 // *****************************************************************************
 // MAIN
 // *****************************************************************************

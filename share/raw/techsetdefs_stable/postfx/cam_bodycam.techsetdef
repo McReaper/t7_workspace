@@ -172,6 +172,14 @@ float1( "grainScale" )
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+// Script-driven dynamics (vignette boost/offsets, grain boost) are NOT declared
+// here. They are read in the shader from scriptVector3 (GenericsCBuffer), which
+// SetFilterPassConstant writes at constant indices 12..15. Declaring them as
+// material <cg03_*> constants here would feed them from the material instead,
+// and SetFilterPassConstant would have no effect (that was the original bug).
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
 Technique( "lit", "unlit" )
 {
 	state = "replace + nocull"
