@@ -130,7 +130,7 @@ float4 ps_main(const PixelInput pixel) : SV_TARGET
 	float2 vigCenter = float2(0.5 + vignetteOffsetX, 0.5 + vignetteOffsetY);
 	float  vig       = RadialGradientExponential(texCoords, vigCenter, vignetteRadius, vignetteDensity, false);
 	float  vigFactor = lerp(1.0, vig, saturate(vignetteStrength + vignetteDynamic));
-	color *= vigFactor;
+	// vigFactor is applied at the very end so the vignette also frames the static wipe.
 
 	// --- 4) Film grain: noise quantised into cells so the grains are chunkier
 	//        than one pixel. grainScale = cells across the screen -> LOWER is
@@ -142,7 +142,25 @@ float4 ps_main(const PixelInput pixel) : SV_TARGET
 	float2 cell      = floor(grainXY * grainScale);
 	float2 seed      = (cell + grainStep * float2(37.0, 17.0)) / max(grainScale, 1.0);
 	float  n         = Random2D(seed);
-	color *= 1.0 + (n - 0.5) * (grainStrength + grainDynamic);
+
+	// Analog interference (scriptVector3.y, 0..1): more grain as it rises, then a
+	// full static wipe past the halfway point to fully obscure the view.
+	float  grainAmt = grainStrength + grainDynamic * 2.0;
+	color *= 1.0 + (n - 0.5) * grainAmt;
+
+	float  obscure = saturate((grainDynamic - 0.3) / 0.45);   // full static by ~0.75 so "close" fully hides
+	if (obscure > 0.0)
+	{
+		// Blend in normalized (display) space -- the scene is HDR-scaled here, so a
+		// raw 0..1 noise would read as black; normalize, blend, then denormalize.
+		float  staticN = 0.15 + Random2D(seed + grainStep * 1.7 + 3.1) * 0.4;   // grey static (0.15..0.55)
+		float3 ldr     = PostFx_NormalizeColor(color);
+		ldr = lerp(ldr, float3(staticN, staticN, staticN), obscure);
+		color = PostFx_DenormalizeColor(ldr);
+	}
+
+	// Vignette last: frames the scene AND the static wipe.
+	color *= vigFactor;
 
 	#if TOOLSGFX
 	color = LinearToSRGB(color);

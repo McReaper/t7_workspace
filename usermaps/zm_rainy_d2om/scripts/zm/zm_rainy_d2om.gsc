@@ -71,6 +71,18 @@ function main()
     level thread zm_zonemgr::manage_zones(init_zones);
 
     level.pathdist_type = PATHDIST_ORIGINAL;
+
+    // Bodycam demo: spawn a runtime interference source at the "bodycam_test"
+    // point. Real events call cam_bodycam::spawn_interference_source(origin, ...).
+    bodycam_ref = struct::get("bodycam_test", "targetname");
+    if (!isdefined(bodycam_ref))
+    {
+        bodycam_ref = GetEnt("bodycam_test", "targetname");
+    }
+    if (isdefined(bodycam_ref))
+    {
+        cam_bodycam::spawn_interference_source(bodycam_ref.origin, 400, true);
+    }
 }
 
 function usermap_test_zone_init()

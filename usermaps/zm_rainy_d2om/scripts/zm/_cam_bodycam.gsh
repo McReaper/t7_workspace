@@ -3,7 +3,7 @@
 //  #insert'ed by _cam_bodycam.csc (client) and _cam_bodycam.gsc (server).
 // ============================================================================
 
-// Master on/off for the look.
+// Master on/off for the look (compile-time).
 #define CAM_BODYCAM_ENABLED         1
 
 // Filter material + slot (applied via the filter:: API, see _cam_bodycam.csc).
@@ -26,9 +26,8 @@
 #define CAM_BODYCAM_CF_MOVE         "cam_bodycam_move"     // movement level 0..15
 #define CAM_BODYCAM_CF_MOVE_BITS    4
 #define CAM_BODYCAM_CF_MOVE_MAX     15
-#define CAM_BODYCAM_CF_GLITCH       "cam_bodycam_glitch"   // event glitch 0..7
-#define CAM_BODYCAM_CF_GLITCH_BITS  3
-#define CAM_BODYCAM_CF_GLITCH_MAX   7
+#define CAM_BODYCAM_CF_GLITCH       "cam_bodycam_glitch"   // event glitch, float 0..1
+#define CAM_BODYCAM_CF_GLITCH_BITS  5                      // float precision (32 steps)
 
 // --- Tuning ---
 #define CAM_BODYCAM_MOVE_REFSPEED   180.0  // speed (u/s) counted as "full" movement

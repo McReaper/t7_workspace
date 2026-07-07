@@ -6,6 +6,8 @@
 //  CodeTexture("resolvedScene") and maps each shader constant to a material
 //  register (cg00.* / cg01.*) so the look is tunable in APE.
 //  materialType of the material that uses this MUST be "cam_bodycam".
+//  rev4: vignette applied last (frames the static wipe) + greyed static. Re-touched
+//  to force a techset shader recompile after the .hlsl change.
 // ============================================================================
 
 Globals()
