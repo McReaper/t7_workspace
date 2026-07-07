@@ -71,6 +71,17 @@ function private _dynamics_updater()
 
     lcn = self.localClientNum;
 
+    // Interference static bed: one 2D loop whose volume follows the level each
+    // frame. Re-spawn cleanly if this updater restarts (respawn).
+    if (isdefined(self.cam_bodycam_snd_ent))
+    {
+        self.cam_bodycam_snd_ent delete();
+    }
+    self.cam_bodycam_snd_ent = spawn(lcn, self.origin, "script_origin");
+    snd_id = self.cam_bodycam_snd_ent playloopsound(CAM_BODYCAM_SND_STATIC, 5);
+    WAIT_CLIENT_FRAME;
+    SetSoundVolume(snd_id, 0);
+
     prev_yaw   = self.angles[1];
     prev_pitch = self.angles[0];
     off_x = 0.0;
@@ -114,6 +125,7 @@ function private _dynamics_updater()
             glitch_target = self.cam_glitch_level;
         }
         glitch += (glitch_target - glitch) * CAM_BODYCAM_SMOOTH;
+        SetSoundVolume(snd_id, glitch);
 
         setfilterpassconstant(lcn, CAM_BODYCAM_FILTER_ID, 0, CAM_BODYCAM_CI_VIG_OFF_X, off_x + bob_x);
         setfilterpassconstant(lcn, CAM_BODYCAM_FILTER_ID, 0, CAM_BODYCAM_CI_VIG_OFF_Y, off_y + bob_y);

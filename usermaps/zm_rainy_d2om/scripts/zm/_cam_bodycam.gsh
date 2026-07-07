@@ -15,6 +15,9 @@
 // instead of scriptVector3; see _cam_bodycam.hlsl. Slot 6 would likely work too.)
 #define CAM_BODYCAM_FILTER_ID       7
 
+// Interference static bed (2D loop; its volume follows the interference level).
+#define CAM_BODYCAM_SND_STATIC      "cam_bodycam_static"
+
 // --- Script-driven shader constants (register cg03), added on top of the
 //     APE-tuned base. index = register*4 + component -> cg03 starts at 12. ---
 #define CAM_BODYCAM_CI_VIGNETTE     12   // cg03.x - extra vignette strength
