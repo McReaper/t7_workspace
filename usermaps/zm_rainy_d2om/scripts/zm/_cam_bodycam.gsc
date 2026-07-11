@@ -50,6 +50,14 @@ function private _track_movement()
     last_level = -1;
     while (true)
     {
+        // set_to_player only works on a player in the normal playing state; skip
+        // while spectating or scene-driven (e.g. riding the zipline).
+        if (!isplayer(self) || !isdefined(self.sessionstate) || self.sessionstate != "playing")
+        {
+            wait(0.05);
+            continue;
+        }
+
         frac = self getplayerspeed() / CAM_BODYCAM_MOVE_REFSPEED;
         if (frac > 1.0)
         {
@@ -75,6 +83,11 @@ function glitch(amount, duration)
     self notify("cam_bodycam_glitch");
     self endon("cam_bodycam_glitch");
 
+    if (!isplayer(self) || !isdefined(self.sessionstate) || self.sessionstate != "playing")
+    {
+        return;
+    }
+
     if (!isdefined(duration))
     {
         duration = 1.0;
@@ -98,6 +111,13 @@ function glitch(amount, duration)
 // static wipe. Drive it continuously (e.g. from distance to an objective).
 function set_interference(interference_level)
 {
+    // set_to_player errors ("must be called on a player") on anything that isn't
+    // a player in the normal playing state — a spectator, or a player whose view
+    // is driven by a scene (e.g. riding the zipline). Skip those quietly.
+    if (!isplayer(self) || !isdefined(self.sessionstate) || self.sessionstate != "playing")
+    {
+        return;
+    }
     if (interference_level < 0)
     {
         interference_level = 0;
