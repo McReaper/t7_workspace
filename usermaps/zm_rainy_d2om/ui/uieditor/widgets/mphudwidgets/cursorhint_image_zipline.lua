@@ -1,13 +1,7 @@
--- Rewrite of CoD.cursorhint_image (the icon inside ZMCursorHint). LuiLoad-ed after
--- the stock (require case MUST match ZMCursorHint's "MPHudWidgets" to share the
--- module cache). ZMCursorHint indexes children c1x1/x1x4/c1x2 by name, so we keep
--- them, no-op their setImage, and drive the picture from the cursorHintImage model.
---
--- Every HINT_ACTIVATE pushes the same image ("hud_grenadethrowback_glow"), so we
--- tell the zipline apart by its hint text. The model text and Engine.Localize(ref)
--- render identically but differ byte-wise (resolved key vs "[{+activate}]", caret/
--- space encodings), so we reduce both to letters-only and test containment. The
--- zipline draws the trolley icon; every other interaction draws interact_icon.
+-- Rewrite of CoD.cursorhint_image. LuiLoad-ed after the stock; the require case MUST
+-- match ZMCursorHint's "MPHudWidgets" to share the module cache. Keep its named
+-- children c1x1/x1x4/c1x2 (no-op their setImage) and drive the image from the model.
+-- Every HINT_ACTIVATE pushes the same image, so the zipline is told apart by hint text.
 
 require("ui.uieditor.widgets.MPHudWidgets.cursorhint_image")
 
@@ -18,10 +12,9 @@ local ZIPLINE_REF = "ZIPLINE_USE"
 
 local ICON_HALF = 24
 
--- Reduce a hint string to comparable content: drop the [{+bind}] token (so
--- "activate" doesn't leak in), then keep ASCII letters and every non-ASCII byte
--- (CJK/Cyrillic/accented text) while dropping ASCII non-letters (caret color codes,
--- digits, the various space encodings). Works for all 12 languages, not just Latin.
+-- Model text and Engine.Localize differ byte-wise, so compare on reduced content:
+-- drop the [{+bind}] token, keep letters and non-ASCII bytes (CJK/Cyrillic), drop
+-- ASCII non-letters (caret codes, digits, spaces). Holds for all 12 languages.
 local function letters(s)
     return ((s or ""):gsub("%[{%+%w+}%]", ""):gsub("[^%a\128-\255]", ""))
 end

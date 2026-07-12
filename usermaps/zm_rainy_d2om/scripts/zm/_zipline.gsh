@@ -1,53 +1,42 @@
 // Tunables for the zipline traversal (feature: _zipline.gsc).
 
-// Debug: flip to 1 to print chain-resolution failures. No commas inside __str — use +.
+// No commas inside __str — use +.
 #define DEBUG_ZIPLINE           0
 #define PRINT_ZIPLINE_DEBUG(__str) if(DEBUG_ZIPLINE) IPrintLnBold(__str)
 
-// Radiant contract: each zipline is a chain — a trigger_use with this targetname,
-// its .target a start script_struct, that struct's .target the end script_struct.
+// Radiant chain: trigger_use(targetname) -> start struct(.target) -> end struct(.target).
 #define ZIPLINE_TRIGGER_TARGETNAME  "zipline"
 
-// Hint prompt on the trigger. Ref = <str filename>_<REFERENCE>: zipline.str + USE.
-// String lives in share/raw/<lang>/localizedstrings/zipline.str (zone: localize,zipline).
+// String in share/raw/<lang>/localizedstrings/zipline.str (zone: localize,zipline).
 #define ZIPLINE_HINT_LOCALIZED      "ZIPLINE_USE"
 
-// The zipline uses HINT_ACTIVATE (the only enum that routes through ZMCursorHint).
-// The zipline hintstrings carry a hidden leading "^7" marker (invisible) so the
-// cursorhint_image widget can tell them apart and draw the trolley (interact icon
-// elsewhere).
+// Only HINT_ACTIVATE routes through ZMCursorHint (where the widget swaps the icon).
 #define ZIPLINE_HINT_ENUM       "HINT_ACTIVATE"
 
-// Scene bundles (zipline_scenes.gdt), played on a player clone — NOT the real
-// player: a scripted anim on the player kills its walking-footstep notetracks for
-// the rest of the game. object1 was changed Player->Prop so the clone can bind.
+// Scene bundles (zipline_scenes.gdt); object1 is Prop so the clone can bind.
 #define ZIPLINE_SCENE_ATTACH    "cin_gen_traversal_zipline_player_attach"
 #define ZIPLINE_SCENE_IDLE      "cin_gen_traversal_zipline_player_idle"
 #define ZIPLINE_SCENE_DISMOUNT  "cin_gen_traversal_zipline_player_dismount"
 
-// Trolley the clone grips, linked to this hand tag.
 #define ZIPLINE_TROLLEY_MODEL   "wpn_t7_zipline_trolley_prop"
 #define ZIPLINE_TROLLEY_TAG     "tag_weapon_left"
 
-// Angle offset on the trolley link, to seat the pulley squarely on the cable.
-// Positive YAW turns it left (view from above).
+// Trolley link angle offset, to seat the pulley on the cable.
 #define ZIPLINE_TROLLEY_PITCH   0
 #define ZIPLINE_TROLLEY_YAW     0
 #define ZIPLINE_TROLLEY_ROLL    15
 
-// Sound aliases (share/raw/sound/aliases/zipline.csv); detach reuses the board set.
+// Sound aliases (share/raw/sound/aliases/zipline.csv).
 #define ZIPLINE_SND_BOARD       "zip_attach"
 #define ZIPLINE_SND_MOVE        "zip_move"
 #define ZIPLINE_SND_DETACH      "zip_detach"
 
-// Controller rumble (share/raw/rumble/*.rmb, base name w/o _h/_l; zone: rumble,NAME).
-// The shipped slide trio maps onto grab / glide loop / land.
+// Rumble presets (share/raw/rumble/*.rmb, base name w/o _h/_l; zone: rumble,NAME).
 #define ZIPLINE_RMB_START       "slide_start"
 #define ZIPLINE_RMB_LOOP        "slide_loop"
 #define ZIPLINE_RMB_END         "slide_end"
 
-// Sparks FX, played server-side on a model linked to the trolley (zone: fx,PATH).
-// FWD/LEFT/UP offset it off the trolley tag; PITCH/YAW/ROLL aim the emission.
+// Sparks FX on a model linked to the trolley; FWD/LEFT/UP offset, PITCH/YAW/ROLL aim.
 #define ZIPLINE_FX_KEY          "zipline_sparks"
 #define ZIPLINE_FX_PATH         "electric/fx_sparks_zipline"
 #define ZIPLINE_FX_FWD          3
@@ -57,33 +46,30 @@
 #define ZIPLINE_FX_YAW          0
 #define ZIPLINE_FX_ROLL         40
 
-// Glide speed (world units/second) and the travel step (one server frame).
+// Glide speed (units/s) and travel step (one server frame).
 #define ZIPLINE_SPEED_UPS       300
 #define ZIPLINE_TICK            0.05
 
-// Units the rig hangs below the struct at spawn/attach (before the slide takes over).
+// Units the rig hangs below the struct at attach.
 #define ZIPLINE_HANG_OFFSET     88
 
-// Drops the grip (trolley) below the struct line during the glide, so the pulley
-// sits on the cable rather than above it. Raise to lower the pulley.
+// Drops the pulley below the struct line so it sits on the cable. Raise to lower it.
 #define ZIPLINE_GRIP_DROP       3
 
-// Fire the dismount this far (units) before the end struct, not at the tip.
+// Fire the dismount this far (units) before the end struct.
 #define ZIPLINE_DISMOUNT_LEAD   70
 
-// Landing: carry DIST forward off the cable, trace to ground, MoveTo onto it over
-// TIME. GROUND_OFFSET nudges the final Z (raise if feet clip/sink).
+// Landing: carry DIST forward, trace to ground, MoveTo over TIME; GROUND_OFFSET tunes Z.
 #define ZIPLINE_LAND_DIST           90
 #define ZIPLINE_LAND_TIME           0.9
 #define ZIPLINE_LAND_TRACE_UP       40
 #define ZIPLINE_LAND_TRACE_DOWN     400
 #define ZIPLINE_LAND_GROUND_OFFSET  0
 
-// Slide start = the attach anim's grab (its zipline_attached note, frame 30 @ 30fps).
+// Slide start = the attach anim's grab note (frame 30 @ 30fps).
 #define ZIPLINE_GRAB_TIME       1.0
 
-// Ride phase: CF_TP (toplayer) = rider's camera/footsteps; CF_SND (allplayers) =
-// ride sounds for every client.
+// Ride phase clientfields: CF_TP (toplayer) camera; CF_SND (allplayers) sounds.
 #define ZIPLINE_CF_TP           "zipline_thirdperson"
 #define ZIPLINE_CF_TP_BITS      2
 #define ZIPLINE_CF_SND          "zipline_sound"
@@ -93,8 +79,7 @@
 #define ZIPLINE_TP_GLIDE        2
 #define ZIPLINE_TP_LAND         3
 
-// Radial speed blur during the glide (CSC EnableSpeedBlur) — sharp center, blurred
-// periphery, to sell the descent's velocity. IN/OUT are ramp times in milliseconds.
+// Radial speed blur over the glide (CSC EnableSpeedBlur); IN/OUT ramp times in ms.
 #define ZIPLINE_BLUR_AMOUNT     0.3
 #define ZIPLINE_BLUR_INNER      0.2
 #define ZIPLINE_BLUR_OUTER      1.0
@@ -104,13 +89,11 @@
 // cg_thirdPersonRange per phase (smaller = closer); LERP smooths the ramp.
 #define ZIPLINE_TP_RANGE_CLOSE  70
 #define ZIPLINE_TP_RANGE_FAR    150
-#define ZIPLINE_TP_LERP         0.35
+#define ZIPLINE_TP_LERP         0.5
 
-// Range the ramp starts/ends at — near first-person, so entering/leaving third
-// person pulls the camera out and back in over FADE seconds in STEPS increments
-// instead of snapping.
+// START = near first-person; the ramp pulls out/in over FADE in STEPS steps.
 #define ZIPLINE_TP_RANGE_START  8
 #define ZIPLINE_TP_STEPS        32
 #define ZIPLINE_TP_FADE         1.0
-// Slower pull-out on board so the first-person -> third jump eases in gently.
+// Slower pull-out on board.
 #define ZIPLINE_TP_ENTER_FADE   3.0

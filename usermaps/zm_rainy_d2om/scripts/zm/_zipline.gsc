@@ -73,10 +73,8 @@ function private _set_phase(phase)
     self clientfield::set(ZIPLINE_CF_SND, phase);
 }
 
-// Anims play on a player clone, never the real player (a scripted anim on the
-// player permanently kills its walking-footstep notetracks). The real player is
-// ghosted and rides linked to the cable model; the clone (its own skin) is animated
-// anchored to that model. Pattern from cp_mi_sing_biodomes_supertrees::zipline_player.
+// Anims run on a clone, not the real player: a scripted anim permanently kills the
+// player's footstep notetracks. The real player is ghosted and rides linked to align_model.
 function private _ride(start_struct, end_struct, trigger)
 {
     self endon("disconnect");
@@ -84,8 +82,7 @@ function private _ride(start_struct, end_struct, trigger)
 
     self.on_zipline = true;
 
-    // Disable the trigger and let the still-live use-scan clear its prompt (one frame)
-    // BEFORE the link freezes it — a link latches the prompt on screen otherwise.
+    // Let the use-scan clear the prompt one frame before the link latches it on screen.
     trigger TriggerEnable(false);
     WAIT_SERVER_FRAME;
 
@@ -96,11 +93,16 @@ function private _ride(start_struct, end_struct, trigger)
 
     // While still "playing" — else the clientfield set errors.
     self _set_phase(ZIPLINE_TP_BOARD);
+    // Splitscreen only: per-player third person so the partner isn't dragged in. Solo
+    // keeps the global cg_thirdPerson dvar (CSC) — it has the range ramp and no exit blend.
+    if (self IsSplitScreen())
+    {
+        self SetClientThirdPerson(1);
+    }
 
     self EnableInvulnerability();
     self PlayerLinkToDelta(align_model, undefined, 1, 180, 180, 180, 180);
-    // FreezeControls doesn't stick through the link; disable actions granularly
-    // (the campaign does the same).
+    // FreezeControls doesn't survive the link; disable actions granularly instead.
     self DisableWeapons();
     self DisableOffhandWeapons();
     self AllowCrouch(false);
@@ -111,8 +113,7 @@ function private _ride(start_struct, end_struct, trigger)
     trolley = _spawn_trolley(clone);
     self Ghost();
 
-    // Scene plays the pose on the clone (object1 is now a Prop) and keeps it aligned
-    // to align_model, so moving align_model slides the clone smoothly along the cable.
+    // Pose plays on the clone anchored to align_model, so moving it slides along the cable.
     align_model thread scene::play(ZIPLINE_SCENE_ATTACH, clone);
     wait(ZIPLINE_GRAB_TIME);
 
@@ -151,9 +152,13 @@ function private _ride(start_struct, end_struct, trigger)
     self AllowProne(true);
     self DisableInvulnerability();
 
-    // Let the CSC ramp the camera back before deleting the model it still frames.
+    // Ramp the camera back (CSC) before deleting the model it still frames.
     self _set_phase(ZIPLINE_TP_OFF);
     wait(ZIPLINE_TP_FADE);
+    if (self IsSplitScreen())
+    {
+        self SetClientThirdPerson(0);
+    }
 
     if (isdefined(align_model))
     {
@@ -187,8 +192,7 @@ function private _travel(actor, start_struct, end_struct)
 
     while (true)
     {
-        // Drive progress from the grip, compensating its offset, so the trolley
-        // stays on the cable rather than the model's origin.
+        // Drive progress from the grip so the trolley tracks the cable, not the origin.
         hand_origin = actor GetTagOrigin(ZIPLINE_TROLLEY_TAG);
         grip_offset = hand_origin - self.origin;
         progress = VectorDot(hand_origin - start_struct.origin, forward) + ZIPLINE_SPEED_UPS * ZIPLINE_TICK;

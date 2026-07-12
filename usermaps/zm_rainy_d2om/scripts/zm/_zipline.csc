@@ -20,29 +20,46 @@ function __init__()
 function private _on_thirdperson_cf(localclientnum, oldval, newval, bnewent, binitialsnap, fieldname, bwastimejump)
 {
     self notify("zipline_tp_ramp");
+
+    // The range ramp needs the global cg_thirdPerson dvar (no per-view variant), so
+    // keep it solo; splitscreen relies on GSC SetClientThirdPerson (fixed distance).
+    solo = !IsSplitScreen();
+
     switch (newval)
     {
         case ZIPLINE_TP_BOARD:
-            SetDvar("cg_thirdPersonCamLerpScale", ZIPLINE_TP_LERP);
-            self.zipline_range = ZIPLINE_TP_RANGE_START;
-            SetDvar("cg_thirdPersonRange", ZIPLINE_TP_RANGE_START);
-            SetDvar("cg_thirdPerson", 1);
-            self thread _ramp_range(ZIPLINE_TP_RANGE_CLOSE, false, ZIPLINE_TP_ENTER_FADE);
+            if (solo)
+            {
+                SetDvar("cg_thirdPersonCamLerpScale", ZIPLINE_TP_LERP);
+                self.zipline_range = ZIPLINE_TP_RANGE_START;
+                SetDvar("cg_thirdPersonRange", ZIPLINE_TP_RANGE_START);
+                SetDvar("cg_thirdPerson", 1);
+                self thread _ramp_range(ZIPLINE_TP_RANGE_CLOSE, ZIPLINE_TP_ENTER_FADE, false);
+            }
             self PlayRumbleOnEntity(localclientnum, ZIPLINE_RMB_START);
             break;
         case ZIPLINE_TP_GLIDE:
-            self thread _ramp_range(ZIPLINE_TP_RANGE_FAR, false, ZIPLINE_TP_FADE);
+            if (solo)
+            {
+                self thread _ramp_range(ZIPLINE_TP_RANGE_FAR, ZIPLINE_TP_FADE, false);
+            }
             EnableSpeedBlur(localclientnum, ZIPLINE_BLUR_AMOUNT, ZIPLINE_BLUR_INNER, ZIPLINE_BLUR_OUTER, false, 0, ZIPLINE_BLUR_IN, ZIPLINE_BLUR_OUT);
             self PlayRumbleLoopOnEntity(localclientnum, ZIPLINE_RMB_LOOP);
             break;
         case ZIPLINE_TP_LAND:
-            self thread _ramp_range(ZIPLINE_TP_RANGE_CLOSE, false, ZIPLINE_TP_FADE);
+            if (solo)
+            {
+                self thread _ramp_range(ZIPLINE_TP_RANGE_CLOSE, ZIPLINE_TP_FADE, false);
+            }
             DisableSpeedBlur(localclientnum);
             self StopRumble(localclientnum, ZIPLINE_RMB_LOOP);
             self PlayRumbleOnEntity(localclientnum, ZIPLINE_RMB_END);
             break;
         case ZIPLINE_TP_OFF:
-            self thread _ramp_range(ZIPLINE_TP_RANGE_START, true, ZIPLINE_TP_FADE);
+            if (solo)
+            {
+                self thread _ramp_range(ZIPLINE_TP_RANGE_START, ZIPLINE_TP_FADE, true);
+            }
             DisableSpeedBlur(localclientnum);
             self StopRumble(localclientnum, ZIPLINE_RMB_LOOP);
             break;
@@ -51,6 +68,13 @@ function private _on_thirdperson_cf(localclientnum, oldval, newval, bnewent, bin
 
 function private _on_sound_cf(localclientnum, oldval, newval, bnewent, binitialsnap, fieldname, bwastimejump)
 {
+    // Play once per machine (host client) — an allplayers field fires per local
+    // client, so splitscreen would otherwise double the shared-speaker 3D sound.
+    if (!IsSplitScreenHost(localclientnum))
+    {
+        return;
+    }
+
     switch (newval)
     {
         case ZIPLINE_TP_BOARD:
@@ -78,7 +102,7 @@ function private _stop_loop(localclientnum)
     }
 }
 
-function private _ramp_range(target_range, disable_after, fade)
+function private _ramp_range(target_range, fade, disable_after)
 {
     self endon("zipline_tp_ramp");
 
