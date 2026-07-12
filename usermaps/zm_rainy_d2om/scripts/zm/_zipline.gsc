@@ -210,7 +210,7 @@ function private _spawn_trolley(host)
     trolley = Spawn("script_model", host.origin);
     trolley SetModel(ZIPLINE_TROLLEY_MODEL);
     trolley NotSolid();
-    trolley LinkTo(host, ZIPLINE_TROLLEY_TAG, (0, 0, 0), (0, 0, 0));
+    trolley LinkTo(host, ZIPLINE_TROLLEY_TAG, (0, 0, 0), (ZIPLINE_TROLLEY_PITCH, ZIPLINE_TROLLEY_YAW, ZIPLINE_TROLLEY_ROLL));
     return trolley;
 }
 

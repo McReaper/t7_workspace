@@ -29,6 +29,12 @@
 #define ZIPLINE_TROLLEY_MODEL   "wpn_t7_zipline_trolley_prop"
 #define ZIPLINE_TROLLEY_TAG     "tag_weapon_left"
 
+// Angle offset on the trolley link, to seat the pulley squarely on the cable.
+// Positive YAW turns it left (view from above).
+#define ZIPLINE_TROLLEY_PITCH   0
+#define ZIPLINE_TROLLEY_YAW     0
+#define ZIPLINE_TROLLEY_ROLL    15
+
 // Sound aliases (share/raw/sound/aliases/zipline.csv); detach reuses the board set.
 #define ZIPLINE_SND_BOARD       "zip_attach"
 #define ZIPLINE_SND_MOVE        "zip_move"
@@ -43,7 +49,7 @@
 #define ZIPLINE_FX_UP           4
 #define ZIPLINE_FX_PITCH        320
 #define ZIPLINE_FX_YAW          0
-#define ZIPLINE_FX_ROLL         0
+#define ZIPLINE_FX_ROLL         40
 
 // Glide speed (world units/second) and the travel step (one server frame).
 #define ZIPLINE_SPEED_UPS       300
