@@ -63,9 +63,12 @@
 // Slide start = the attach anim's grab (its zipline_attached note, frame 30 @ 30fps).
 #define ZIPLINE_GRAB_TIME       1.0
 
-// Clientfield (toplayer) ride phase; CSC reads it to set the camera distance.
+// Ride phase: CF_TP (toplayer) = rider's camera/footsteps; CF_SND (allplayers) =
+// ride sounds for every client.
 #define ZIPLINE_CF_TP           "zipline_thirdperson"
 #define ZIPLINE_CF_TP_BITS      2
+#define ZIPLINE_CF_SND          "zipline_sound"
+#define ZIPLINE_CF_SND_BITS     2
 #define ZIPLINE_TP_OFF          0
 #define ZIPLINE_TP_BOARD        1
 #define ZIPLINE_TP_GLIDE        2

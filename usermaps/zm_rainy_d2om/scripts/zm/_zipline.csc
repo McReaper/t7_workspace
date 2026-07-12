@@ -1,4 +1,4 @@
-// Client half of the zipline: drives the cg_thirdPerson* camera dvars per ride phase.
+// Client half of the zipline: camera dvars (rider) + ride sounds (all clients).
 
 #using scripts\shared\clientfield_shared;
 #using scripts\shared\system_shared;
@@ -14,6 +14,7 @@ REGISTER_SYSTEM("zipline", &__init__, undefined)
 function __init__()
 {
     clientfield::register("toplayer", ZIPLINE_CF_TP, VERSION_SHIP, ZIPLINE_CF_TP_BITS, "int", &_on_thirdperson_cf, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT);
+    clientfield::register("allplayers", ZIPLINE_CF_SND, VERSION_SHIP, ZIPLINE_CF_SND_BITS, "int", &_on_sound_cf, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT);
 }
 
 function private _on_thirdperson_cf(localclientnum, oldval, newval, bnewent, binitialsnap, fieldname, bwastimejump)
@@ -40,7 +41,35 @@ function private _on_thirdperson_cf(localclientnum, oldval, newval, bnewent, bin
     }
 }
 
-// Ease cg_thirdPersonRange to target_range over fade, then optionally drop third person.
+function private _on_sound_cf(localclientnum, oldval, newval, bnewent, binitialsnap, fieldname, bwastimejump)
+{
+    switch (newval)
+    {
+        case ZIPLINE_TP_BOARD:
+            self PlaySound(localclientnum, ZIPLINE_SND_BOARD);
+            break;
+        case ZIPLINE_TP_GLIDE:
+            self.zipline_loop[localclientnum] = self PlayLoopSound(ZIPLINE_SND_MOVE, 0);
+            break;
+        case ZIPLINE_TP_LAND:
+            self _stop_loop(localclientnum);
+            self PlaySound(localclientnum, ZIPLINE_SND_DETACH);
+            break;
+        case ZIPLINE_TP_OFF:
+            self _stop_loop(localclientnum);
+            break;
+    }
+}
+
+function private _stop_loop(localclientnum)
+{
+    if (isdefined(self.zipline_loop) && isdefined(self.zipline_loop[localclientnum]))
+    {
+        self StopLoopSound(self.zipline_loop[localclientnum], 0.2);
+        self.zipline_loop[localclientnum] = undefined;
+    }
+}
+
 function private _ramp_range(target_range, disable_after, fade)
 {
     self endon("zipline_tp_ramp");
