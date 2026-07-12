@@ -87,6 +87,14 @@
 #define ZIPLINE_TP_GLIDE        2
 #define ZIPLINE_TP_LAND         3
 
+// Radial speed blur during the glide (CSC EnableSpeedBlur) — sharp center, blurred
+// periphery, to sell the descent's velocity. IN/OUT are ramp times in milliseconds.
+#define ZIPLINE_BLUR_AMOUNT     0.3
+#define ZIPLINE_BLUR_INNER      0.2
+#define ZIPLINE_BLUR_OUTER      1.0
+#define ZIPLINE_BLUR_IN         1500
+#define ZIPLINE_BLUR_OUT        400
+
 // cg_thirdPersonRange per phase (smaller = closer); LERP smooths the ramp.
 #define ZIPLINE_TP_RANGE_CLOSE  70
 #define ZIPLINE_TP_RANGE_FAR    150

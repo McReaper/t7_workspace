@@ -31,12 +31,15 @@ function private _on_thirdperson_cf(localclientnum, oldval, newval, bnewent, bin
             break;
         case ZIPLINE_TP_GLIDE:
             self thread _ramp_range(ZIPLINE_TP_RANGE_FAR, false, ZIPLINE_TP_FADE);
+            EnableSpeedBlur(localclientnum, ZIPLINE_BLUR_AMOUNT, ZIPLINE_BLUR_INNER, ZIPLINE_BLUR_OUTER, false, 0, ZIPLINE_BLUR_IN, ZIPLINE_BLUR_OUT);
             break;
         case ZIPLINE_TP_LAND:
             self thread _ramp_range(ZIPLINE_TP_RANGE_CLOSE, false, ZIPLINE_TP_FADE);
+            DisableSpeedBlur(localclientnum);
             break;
         case ZIPLINE_TP_OFF:
             self thread _ramp_range(ZIPLINE_TP_RANGE_START, true, ZIPLINE_TP_FADE);
+            DisableSpeedBlur(localclientnum);
             break;
     }
 }
