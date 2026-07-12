@@ -35,7 +35,7 @@ The stock scripts and usermap templates predate these conventions (tabs, `( padd
 - **Always braces**, body on its own line — never `if (x) doThing();`.
 - **Naming** — `snake_case` functions/vars, `UPPER_SNAKE` for `#define`, `_`-prefix + `private` keyword for file-local helpers.
 - **Tunables in a `#insert`ed `.gsh`** — not magic numbers, not config dvars.
-- **Comments stay short** — 1-2 lines, never 3+ line comment blocks. Say *why*, not *what*; don't narrate the obvious.
+- **Comment sparingly — the default is no comment.** The code is read as self-explanatory; don't narrate what it already says. A comment earns its place *only* when it records something the code cannot: a non-obvious *why*, a gotcha, a ground-truth reference. No line-by-line/step ("// 1.", "// 2."), no restating the call on the next line, no comment on an obvious spawn/set/loop. When one is warranted, keep it to 1 line (2 max), never a 3+ line block. Delete a comment before adding a redundant one.
 
 ## Verify shipped tokens against ground truth
 
