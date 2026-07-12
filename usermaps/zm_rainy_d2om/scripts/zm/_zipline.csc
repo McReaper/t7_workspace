@@ -1,0 +1,63 @@
+// Client half of the zipline: drives the cg_thirdPerson* camera dvars per ride phase.
+
+#using scripts\shared\clientfield_shared;
+#using scripts\shared\system_shared;
+
+#insert scripts\shared\shared.gsh;
+#insert scripts\shared\version.gsh;
+#insert scripts\zm\_zipline.gsh;
+
+#namespace zipline;
+
+REGISTER_SYSTEM("zipline", &__init__, undefined)
+
+function __init__()
+{
+    clientfield::register("toplayer", ZIPLINE_CF_TP, VERSION_SHIP, ZIPLINE_CF_TP_BITS, "int", &_on_thirdperson_cf, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT);
+}
+
+function private _on_thirdperson_cf(localclientnum, oldval, newval, bnewent, binitialsnap, fieldname, bwastimejump)
+{
+    self notify("zipline_tp_ramp");
+    switch (newval)
+    {
+        case ZIPLINE_TP_BOARD:
+            SetDvar("cg_thirdPersonCamLerpScale", ZIPLINE_TP_LERP);
+            self.zipline_range = ZIPLINE_TP_RANGE_START;
+            SetDvar("cg_thirdPersonRange", ZIPLINE_TP_RANGE_START);
+            SetDvar("cg_thirdPerson", 1);
+            self thread _ramp_range(ZIPLINE_TP_RANGE_CLOSE, false, ZIPLINE_TP_ENTER_FADE);
+            break;
+        case ZIPLINE_TP_GLIDE:
+            self thread _ramp_range(ZIPLINE_TP_RANGE_FAR, false, ZIPLINE_TP_FADE);
+            break;
+        case ZIPLINE_TP_LAND:
+            self thread _ramp_range(ZIPLINE_TP_RANGE_CLOSE, false, ZIPLINE_TP_FADE);
+            break;
+        case ZIPLINE_TP_OFF:
+            self thread _ramp_range(ZIPLINE_TP_RANGE_START, true, ZIPLINE_TP_FADE);
+            break;
+    }
+}
+
+// Ease cg_thirdPersonRange to target_range over fade, then optionally drop third person.
+function private _ramp_range(target_range, disable_after, fade)
+{
+    self endon("zipline_tp_ramp");
+
+    start_range = self.zipline_range;
+    if (!isdefined(start_range))
+    {
+        start_range = target_range;
+    }
+    for (step = 1; step <= ZIPLINE_TP_STEPS; step++)
+    {
+        self.zipline_range = start_range + (target_range - start_range) * step / ZIPLINE_TP_STEPS;
+        SetDvar("cg_thirdPersonRange", self.zipline_range);
+        wait(fade / ZIPLINE_TP_STEPS);
+    }
+    if (disable_after)
+    {
+        SetDvar("cg_thirdPerson", 0);
+    }
+}

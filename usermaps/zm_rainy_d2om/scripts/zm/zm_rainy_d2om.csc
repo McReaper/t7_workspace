@@ -39,6 +39,9 @@
 // Bodycam camera mod — client half in _cam_bodycam.csc, config in _cam_bodycam.gsh.
 #using scripts\zm\_cam_bodycam;
 
+// Zipline traversal — client half in _zipline.csc (third-person camera + dvars).
+#using scripts\zm\_zipline;
+
 function main()
 {
     zm_usermap::main();

@@ -54,6 +54,9 @@
 // Bodycam camera mod (feature: _cam_bodycam.gsc/.csc, config: _cam_bodycam.gsh).
 #using scripts\zm\_cam_bodycam;
 
+// First-person zipline traversal (feature: _zipline.gsc, config: _zipline.gsh).
+#using scripts\zm\_zipline;
+
 // *****************************************************************************
 // MAIN
 // *****************************************************************************
