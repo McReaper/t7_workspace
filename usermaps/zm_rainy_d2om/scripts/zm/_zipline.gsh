@@ -1,7 +1,7 @@
 // Tunables for the zipline traversal (feature: _zipline.gsc).
 
 // Debug: flip to 1 to print chain-resolution failures. No commas inside __str — use +.
-#define DEBUG_ZIPLINE 1
+#define DEBUG_ZIPLINE           0
 #define PRINT_ZIPLINE_DEBUG(__str) if(DEBUG_ZIPLINE) IPrintLnBold(__str)
 
 // Radiant contract: each zipline is a chain — a trigger_use with this targetname,

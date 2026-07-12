@@ -83,9 +83,11 @@ function private _ride(start_struct, end_struct, trigger)
     level endon("end_game");
 
     self.on_zipline = true;
-    // Freeze input for the ride: PlayerLinkToDelta otherwise leaves the use-scan
-    // latched on the trigger and its prompt stuck on screen the whole descent.
-    self FreezeControls(true);
+
+    // Disable the trigger and let the still-live use-scan clear its prompt (one frame)
+    // BEFORE the link freezes it — a link latches the prompt on screen otherwise.
+    trigger TriggerEnable(false);
+    WAIT_SERVER_FRAME;
 
     align_model = Spawn("script_model", start_struct.origin - (0, 0, ZIPLINE_HANG_OFFSET));
     align_model SetModel("tag_origin");
@@ -95,9 +97,11 @@ function private _ride(start_struct, end_struct, trigger)
     // While still "playing" — else the clientfield set errors.
     self _set_phase(ZIPLINE_TP_BOARD);
 
-    // 180° clamps = free look (the 20/15/60 campaign values clamp the view).
+    self EnableInvulnerability();
     self PlayerLinkToDelta(align_model, undefined, 1, 180, 180, 180, 180);
-    self DisableWeaponCycling();
+    // FreezeControls doesn't stick through the link; disable actions granularly
+    // (the campaign does the same).
+    self DisableWeapons();
     self DisableOffhandWeapons();
     self AllowCrouch(false);
     self AllowProne(false);
@@ -141,10 +145,11 @@ function private _ride(start_struct, end_struct, trigger)
         clone Delete();
     }
 
-    self EnableWeaponCycling();
+    self EnableWeapons();
     self EnableOffhandWeapons();
     self AllowCrouch(true);
     self AllowProne(true);
+    self DisableInvulnerability();
 
     // Let the CSC ramp the camera back before deleting the model it still frames.
     self _set_phase(ZIPLINE_TP_OFF);
@@ -154,7 +159,7 @@ function private _ride(start_struct, end_struct, trigger)
     {
         align_model Delete();
     }
-    self FreezeControls(false);
+    trigger TriggerEnable(true);
     self.on_zipline = undefined;
 }
 
