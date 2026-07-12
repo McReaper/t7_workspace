@@ -1,6 +1,11 @@
 >class,zm_mod_level
 >group,modtools
 
+// Player skins (Der crew + custom) — ported from zm_test. Provides
+// customizationtable,zm_character_customization (its core_common.csv line is
+// already commented, so no duplicate).
+include,zm_playersmodels
+
 xmodel,skybox_default_day
 material,luts_t7_default
 	
