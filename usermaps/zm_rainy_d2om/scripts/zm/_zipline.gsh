@@ -40,6 +40,12 @@
 #define ZIPLINE_SND_MOVE        "zip_move"
 #define ZIPLINE_SND_DETACH      "zip_detach"
 
+// Controller rumble (share/raw/rumble/*.rmb, base name w/o _h/_l; zone: rumble,NAME).
+// The shipped slide trio maps onto grab / glide loop / land.
+#define ZIPLINE_RMB_START       "slide_start"
+#define ZIPLINE_RMB_LOOP        "slide_loop"
+#define ZIPLINE_RMB_END         "slide_end"
+
 // Sparks FX, played server-side on a model linked to the trolley (zone: fx,PATH).
 // FWD/LEFT/UP offset it off the trolley tag; PITCH/YAW/ROLL aim the emission.
 #define ZIPLINE_FX_KEY          "zipline_sparks"

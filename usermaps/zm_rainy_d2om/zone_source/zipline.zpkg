@@ -19,4 +19,8 @@ scriptbundle,cin_gen_traversal_zipline_player_dismount
 xmodel,c_t7_ally_fb
 xmodel,wpn_t7_zipline_trolley_prop
 
+rumble,slide_start
+rumble,slide_loop
+rumble,slide_end
+
 fx,electric/fx_sparks_zipline
