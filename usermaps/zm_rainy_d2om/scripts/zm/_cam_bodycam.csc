@@ -70,6 +70,9 @@ function private _dynamics_updater()
     self endon("entityshutdown");
 
     lcn = self.localClientNum;
+    // The vignette-offset jiggle reads wrong across splitscreen's shared viewports,
+    // so pin it there and skip sway/bob. Grain/interference stays per-player.
+    do_jiggle = !IsSplitScreen();
 
     // Interference static bed: one 2D loop whose volume follows the level each
     // frame. Re-spawn cleanly if this updater restarts (respawn).
@@ -88,6 +91,12 @@ function private _dynamics_updater()
     off_y = 0.0;
     move_amt = 0.0;   // smoothed speed fraction driving the walk bob
     glitch = 0.0;
+
+    if (!do_jiggle)
+    {
+        setfilterpassconstant(lcn, CAM_BODYCAM_FILTER_ID, 0, CAM_BODYCAM_CI_VIG_OFF_X, 0.0);
+        setfilterpassconstant(lcn, CAM_BODYCAM_FILTER_ID, 0, CAM_BODYCAM_CI_VIG_OFF_Y, 0.0);
+    }
 
     while (true)
     {
@@ -127,8 +136,11 @@ function private _dynamics_updater()
         glitch += (glitch_target - glitch) * CAM_BODYCAM_SMOOTH;
         SetSoundVolume(snd_id, glitch);
 
-        setfilterpassconstant(lcn, CAM_BODYCAM_FILTER_ID, 0, CAM_BODYCAM_CI_VIG_OFF_X, off_x + bob_x);
-        setfilterpassconstant(lcn, CAM_BODYCAM_FILTER_ID, 0, CAM_BODYCAM_CI_VIG_OFF_Y, off_y + bob_y);
+        if (do_jiggle)
+        {
+            setfilterpassconstant(lcn, CAM_BODYCAM_FILTER_ID, 0, CAM_BODYCAM_CI_VIG_OFF_X, off_x + bob_x);
+            setfilterpassconstant(lcn, CAM_BODYCAM_FILTER_ID, 0, CAM_BODYCAM_CI_VIG_OFF_Y, off_y + bob_y);
+        }
         setfilterpassconstant(lcn, CAM_BODYCAM_FILTER_ID, 0, CAM_BODYCAM_CI_GRAIN, glitch);
         setfilterpassconstant(lcn, CAM_BODYCAM_FILTER_ID, 0, CAM_BODYCAM_CI_VIGNETTE, 0.0);
 
