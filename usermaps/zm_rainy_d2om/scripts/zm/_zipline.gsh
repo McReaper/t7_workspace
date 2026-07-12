@@ -12,6 +12,10 @@
 // String lives in share/raw/<lang>/localizedstrings/zipline.str (zone: localize,zipline).
 #define ZIPLINE_HINT_LOCALIZED      "ZIPLINE_USE"
 
+// Custom cursorhint icon: image asset "zipline_hint" (image,zipline_hint), drawn by
+// the overridden cursorhint_image LUI widget (cursorhint_image_zipline.lua) whenever
+// this trigger's HINT_ACTIVATE cursorhint shows. No GSC state needed.
+
 // Shipped campaign scene bundles (extracted to zipline_scenes.gdt).
 #define ZIPLINE_SCENE_ATTACH    "cin_gen_traversal_zipline_player_attach"
 #define ZIPLINE_SCENE_IDLE      "cin_gen_traversal_zipline_player_idle"

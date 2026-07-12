@@ -55,6 +55,9 @@ function private _watch_trigger()
         return;
     }
 
+    // HINT_ACTIVATE drives the cursorhint slot; the overridden cursorhint_image
+    // widget swaps in the zipline icon whenever this trigger's hint shows.
+    self SetCursorHint("HINT_ACTIVATE");
     self SetHintString(&ZIPLINE_HINT_LOCALIZED);
 
     while (true)
@@ -85,7 +88,9 @@ function private _ride(start_struct, end_struct)
     self clientfield::set_to_player(ZIPLINE_CF_TP, ZIPLINE_TP_BOARD);
 
     trolley = _spawn_trolley(self);
-    trolley PlaySound(ZIPLINE_SND_BOARD);
+    // Not trolley PlaySound: the trolley isn't network-synced this frame, so the
+    // event drops for clients (sound only plays sometimes). Position-based instead.
+    PlaySoundAtPosition(ZIPLINE_SND_BOARD, self.origin);
 
     // Threaded so the slide can start mid-anim, the moment the player grabs on.
     align_model thread scene::play(ZIPLINE_SCENE_ATTACH, self);

@@ -44,6 +44,8 @@
 
 function main()
 {
+    LuiLoad("ui.uieditor.widgets.mphudwidgets.cursorhint_image_zipline");
+
     zm_usermap::main();
 
     include_weapons();
