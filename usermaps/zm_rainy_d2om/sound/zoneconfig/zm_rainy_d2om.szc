@@ -28,6 +28,12 @@
       "Specs": []
     },
     {
+      "Type": "ALIAS",
+      "Name": "zipline",
+      "Filename": "zipline.csv",
+      "Specs": []
+    },
+    {
       "Type": "AMBIENT",
       "Name": "ambient_mod",
       "Filename": "ambient_mod.csv",
