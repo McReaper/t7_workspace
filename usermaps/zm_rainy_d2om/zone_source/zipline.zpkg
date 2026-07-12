@@ -6,6 +6,7 @@ scriptparsetree,scripts/zm/_zipline.csc
 localize,zipline
 rawfile,ui/uieditor/widgets/mphudwidgets/cursorhint_image_zipline.lua
 image,zipline_hint
+image,interact_icon
 
 xanim,pb_zipline_enter
 xanim,pb_zipline_loop

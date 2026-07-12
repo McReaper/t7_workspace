@@ -53,7 +53,7 @@ function private _watch_trigger()
         return;
     }
 
-    self SetCursorHint("HINT_ACTIVATE");
+    self SetCursorHint(ZIPLINE_HINT_ENUM);
     self SetHintString(&ZIPLINE_HINT_LOCALIZED);
 
     while (true)

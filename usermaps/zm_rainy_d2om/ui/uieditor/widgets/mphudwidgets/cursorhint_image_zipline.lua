@@ -1,24 +1,30 @@
--- Full rewrite of the cursor-hint icon element (CoD.cursorhint_image, the image
--- inside ZMCursorHint). A map can't re-zone the stock path, so this file is
--- LuiLoad-ed after it and redefines the global (last-loaded-wins). We still
--- require the stock first (case MUST match ZMCursorHint's "MPHudWidgets") so it
--- shares the module cache and ZMCursorHint doesn't reload + clobber this.
+-- Rewrite of CoD.cursorhint_image (the icon inside ZMCursorHint). LuiLoad-ed after
+-- the stock (require case MUST match ZMCursorHint's "MPHudWidgets" to share the
+-- module cache). ZMCursorHint indexes children c1x1/x1x4/c1x2 by name, so we keep
+-- them, no-op their setImage, and drive the picture from the cursorHintImage model.
 --
--- ZMCursorHint reaches into this element's children BY NAME: its cursorHintImage
--- subscriptions call cursorhintimage0.c1x1 / .x1x4 / .c1x2 :setImage(...) (the
--- three aspect variants). Missing them = "attempt to index a nil value / Failed to
--- notify model subscription". So we recreate those three children, all one centered
--- square, and override their setImage to ignore ZMCursorHint's value (the hand) and
--- always draw the zipline icon. ZMCursorHint's clips drive the container's box/alpha
--- so it appears with the hint -- no hand, no poll, no clientfield. Relies on
--- cursor-hint icons being unused elsewhere.
+-- Every HINT_ACTIVATE pushes the same image ("hud_grenadethrowback_glow"), so we
+-- tell the zipline apart by its hint text. The model text and Engine.Localize(ref)
+-- render identically but differ byte-wise (resolved key vs "[{+activate}]", caret/
+-- space encodings), so we reduce both to letters-only and test containment. The
+-- zipline draws the trolley icon; every other interaction draws interact_icon.
 
 require("ui.uieditor.widgets.MPHudWidgets.cursorhint_image")
 
--- APE image asset (source texture_assets/_reapy/ximages/trolley_icon.png),
--- zoned image,zipline_hint, Streamable OFF.
 local ZIPLINE_HINT_IMAGE = "zipline_hint"
-local ZIPLINE_HINT_HALF = 24 -- half-size of the square icon (px), tune
+local INTERACT_IMAGE = "interact_icon"
+local ACTIVATE_IMG = "hud_grenadethrowback_glow"
+local ZIPLINE_REF = "ZIPLINE_USE"
+
+local ICON_HALF = 24
+
+-- Reduce a hint string to comparable content: drop the [{+bind}] token (so
+-- "activate" doesn't leak in), then keep ASCII letters and every non-ASCII byte
+-- (CJK/Cyrillic/accented text) while dropping ASCII non-letters (caret color codes,
+-- digits, the various space encodings). Works for all 12 languages, not just Latin.
+local function letters(s)
+    return ((s or ""):gsub("%[{%+%w+}%]", ""):gsub("[^%a\128-\255]", ""))
+end
 
 CoD.cursorhint_image = InheritFrom(LUI.UIElement)
 
@@ -29,22 +35,44 @@ function CoD.cursorhint_image.new(menu, controller)
     self.id = "cursorhint_image"
     self.soundSet = "HUD"
 
+    local icons = {}
     local function newIcon()
         local icon = LUI.UIImage.new(menu, controller)
-        icon:setLeftRight(true, false, 0, 2 * ZIPLINE_HINT_HALF)
-        icon:setTopBottom(false, false, -ZIPLINE_HINT_HALF, ZIPLINE_HINT_HALF)
-        LUI.UIImage.setImage(icon, RegisterImage(ZIPLINE_HINT_IMAGE))
-        -- Ignore whatever ZMCursorHint's subscription pushes (the hand); stay ours.
-        icon.setImage = function(element)
-            LUI.UIImage.setImage(element, RegisterImage(ZIPLINE_HINT_IMAGE))
-        end
+        icon:setLeftRight(true, false, 0, 2 * ICON_HALF)
+        icon:setTopBottom(false, false, -ICON_HALF, ICON_HALF)
+        icon.setImage = function() end
         self:addElement(icon)
+        icons[#icons + 1] = icon
         return icon
     end
 
     self.c1x1 = newIcon()
     self.x1x4 = newIcon()
     self.c1x2 = newIcon()
+
+    local ziplineLetters = letters(Engine.Localize(ZIPLINE_REF))
+    local lastImg = ""
+    local isZipline = false
+    local function decide()
+        local img = lastImg
+        if lastImg == ACTIVATE_IMG then
+            img = isZipline and ZIPLINE_HINT_IMAGE or INTERACT_IMAGE
+        end
+        if img and img ~= "" then
+            for i = 1, #icons do
+                LUI.UIImage.setImage(icons[i], RegisterImage(img))
+            end
+        end
+    end
+
+    self:subscribeToGlobalModel(menu, "HUDItems", "cursorHintImage", function(model)
+        lastImg = Engine.GetModelValue(model) or ""
+        decide()
+    end)
+    self:subscribeToGlobalModel(menu, "HUDItems", "cursorHintText", function(model)
+        isZipline = ziplineLetters ~= "" and letters(Engine.GetModelValue(model)):find(ziplineLetters, 1, true) ~= nil
+        decide()
+    end)
 
     LUI.OverrideFunction_CallOriginalSecond(self, "close", function(element)
         element.c1x1:close()

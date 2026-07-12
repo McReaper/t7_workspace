@@ -12,9 +12,11 @@
 // String lives in share/raw/<lang>/localizedstrings/zipline.str (zone: localize,zipline).
 #define ZIPLINE_HINT_LOCALIZED      "ZIPLINE_USE"
 
-// Custom cursorhint icon: image asset "zipline_hint" (image,zipline_hint), drawn by
-// the overridden cursorhint_image LUI widget (cursorhint_image_zipline.lua) whenever
-// this trigger's HINT_ACTIVATE cursorhint shows. No GSC state needed.
+// The zipline uses HINT_ACTIVATE (the only enum that routes through ZMCursorHint).
+// The zipline hintstrings carry a hidden leading "^7" marker (invisible) so the
+// cursorhint_image widget can tell them apart and draw the trolley (interact icon
+// elsewhere).
+#define ZIPLINE_HINT_ENUM       "HINT_ACTIVATE"
 
 // Scene bundles (zipline_scenes.gdt), played on a player clone — NOT the real
 // player: a scripted anim on the player kills its walking-footstep notetracks for
