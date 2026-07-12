@@ -4817,6 +4817,9 @@ main
 		pb_rejack_swim_death
 		pb_barehands_concussion_wave_base_slam
 		pb_barehands_concussive_wave_exit
+		pb_zipline_enter
+		pb_zipline_loop
+		pb_zipline_exit
 
 	}
 }
