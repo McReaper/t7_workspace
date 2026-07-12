@@ -1,7 +1,7 @@
 // Tunables for the zipline traversal (feature: _zipline.gsc).
 
 // Debug: flip to 1 to print chain-resolution failures. No commas inside __str — use +.
-#define DEBUG_ZIPLINE           0
+#define DEBUG_ZIPLINE 1
 #define PRINT_ZIPLINE_DEBUG(__str) if(DEBUG_ZIPLINE) IPrintLnBold(__str)
 
 // Radiant contract: each zipline is a chain — a trigger_use with this targetname,
@@ -16,12 +16,14 @@
 // the overridden cursorhint_image LUI widget (cursorhint_image_zipline.lua) whenever
 // this trigger's HINT_ACTIVATE cursorhint shows. No GSC state needed.
 
-// Shipped campaign scene bundles (extracted to zipline_scenes.gdt).
+// Scene bundles (zipline_scenes.gdt), played on a player clone — NOT the real
+// player: a scripted anim on the player kills its walking-footstep notetracks for
+// the rest of the game. object1 was changed Player->Prop so the clone can bind.
 #define ZIPLINE_SCENE_ATTACH    "cin_gen_traversal_zipline_player_attach"
 #define ZIPLINE_SCENE_IDLE      "cin_gen_traversal_zipline_player_idle"
 #define ZIPLINE_SCENE_DISMOUNT  "cin_gen_traversal_zipline_player_dismount"
 
-// Trolley the player grips, linked to this hand tag.
+// Trolley the clone grips, linked to this hand tag.
 #define ZIPLINE_TROLLEY_MODEL   "wpn_t7_zipline_trolley_prop"
 #define ZIPLINE_TROLLEY_TAG     "tag_weapon_left"
 
@@ -34,20 +36,23 @@
 // FWD/LEFT/UP offset it off the trolley tag; PITCH/YAW/ROLL aim the emission.
 #define ZIPLINE_FX_KEY          "zipline_sparks"
 #define ZIPLINE_FX_PATH         "electric/fx_sparks_zipline"
-#define ZIPLINE_FX_FWD          0
+#define ZIPLINE_FX_FWD          3
 #define ZIPLINE_FX_LEFT         0
-#define ZIPLINE_FX_UP           3
-#define ZIPLINE_FX_PITCH        310
+#define ZIPLINE_FX_UP           4
+#define ZIPLINE_FX_PITCH        320
 #define ZIPLINE_FX_YAW          0
 #define ZIPLINE_FX_ROLL         0
 
-// Glide speed (world units/second) and the slide step (one server frame).
+// Glide speed (world units/second) and the travel step (one server frame).
 #define ZIPLINE_SPEED_UPS       300
 #define ZIPLINE_TICK            0.05
 
-// Units the player hangs below the start struct during the attach grab, before the
-// slide takes over. Set near the grip's vertical offset so there's no pop at launch.
+// Units the rig hangs below the struct at spawn/attach (before the slide takes over).
 #define ZIPLINE_HANG_OFFSET     88
+
+// Drops the grip (trolley) below the struct line during the glide, so the pulley
+// sits on the cable rather than above it. Raise to lower the pulley.
+#define ZIPLINE_GRIP_DROP       3
 
 // Fire the dismount this far (units) before the end struct, not at the tip.
 #define ZIPLINE_DISMOUNT_LEAD   70

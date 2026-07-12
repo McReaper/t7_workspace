@@ -63,7 +63,7 @@ function private _watch_trigger()
         {
             continue;
         }
-        player thread _ride(start_struct, end_struct);
+        player thread _ride(start_struct, end_struct, self);
     }
 }
 
@@ -73,14 +73,20 @@ function private _set_phase(phase)
     self clientfield::set(ZIPLINE_CF_SND, phase);
 }
 
-function private _ride(start_struct, end_struct)
+// Anims play on a player clone, never the real player (a scripted anim on the
+// player permanently kills its walking-footstep notetracks). The real player is
+// ghosted and rides linked to the cable model; the clone (its own skin) is animated
+// anchored to that model. Pattern from cp_mi_sing_biodomes_supertrees::zipline_player.
+function private _ride(start_struct, end_struct, trigger)
 {
     self endon("disconnect");
     level endon("end_game");
 
     self.on_zipline = true;
+    // Freeze input for the ride: PlayerLinkToDelta otherwise leaves the use-scan
+    // latched on the trigger and its prompt stuck on screen the whole descent.
+    self FreezeControls(true);
 
-    // The scene keeps the player aligned to this root, so moving it slides them.
     align_model = Spawn("script_model", start_struct.origin - (0, 0, ZIPLINE_HANG_OFFSET));
     align_model SetModel("tag_origin");
     align_model.angles = VectorToAngles(end_struct.origin - start_struct.origin);
@@ -89,16 +95,28 @@ function private _ride(start_struct, end_struct)
     // While still "playing" — else the clientfield set errors.
     self _set_phase(ZIPLINE_TP_BOARD);
 
-    trolley = _spawn_trolley(self);
+    // 180° clamps = free look (the 20/15/60 campaign values clamp the view).
+    self PlayerLinkToDelta(align_model, undefined, 1, 180, 180, 180, 180);
+    self DisableWeaponCycling();
+    self DisableOffhandWeapons();
+    self AllowCrouch(false);
+    self AllowProne(false);
 
-    align_model thread scene::play(ZIPLINE_SCENE_ATTACH, self);
+    clone = util::spawn_player_clone(self);
+    clone NotSolid();
+    trolley = _spawn_trolley(clone);
+    self Ghost();
+
+    // Scene plays the pose on the clone (object1 is now a Prop) and keeps it aligned
+    // to align_model, so moving align_model slides the clone smoothly along the cable.
+    align_model thread scene::play(ZIPLINE_SCENE_ATTACH, clone);
     wait(ZIPLINE_GRAB_TIME);
 
     self _set_phase(ZIPLINE_TP_GLIDE);
     sparks = _spawn_sparks(trolley);
 
-    align_model thread _glide_pose(self);
-    align_model _travel(self, start_struct, end_struct);
+    align_model thread _glide_pose(clone);
+    align_model _travel(clone, start_struct, end_struct);
 
     sparks Delete();
     // scene::stop would reset the pose and flicker; blend the dismount instead.
@@ -107,15 +125,26 @@ function private _ride(start_struct, end_struct)
     self _set_phase(ZIPLINE_TP_LAND);
 
     forward = AnglesToForward(align_model.angles);
-    land_spot = align_model.origin + (forward[0], forward[1], 0) * ZIPLINE_LAND_DIST;
-    align_model MoveTo(_ground_below(land_spot), ZIPLINE_LAND_TIME);
+    land_spot = _ground_below(align_model.origin + (forward[0], forward[1], 0) * ZIPLINE_LAND_DIST);
+    align_model MoveTo(land_spot, ZIPLINE_LAND_TIME);
 
-    align_model scene::play(ZIPLINE_SCENE_DISMOUNT, self);
+    align_model scene::play(ZIPLINE_SCENE_DISMOUNT, clone);
 
+    self Unlink();
     if (isdefined(trolley))
     {
         trolley Delete();
     }
+    self Show();
+    if (isdefined(clone))
+    {
+        clone Delete();
+    }
+
+    self EnableWeaponCycling();
+    self EnableOffhandWeapons();
+    self AllowCrouch(true);
+    self AllowProne(true);
 
     // Let the CSC ramp the camera back before deleting the model it still frames.
     self _set_phase(ZIPLINE_TP_OFF);
@@ -125,15 +154,58 @@ function private _ride(start_struct, end_struct)
     {
         align_model Delete();
     }
+    self FreezeControls(false);
     self.on_zipline = undefined;
 }
 
-function private _spawn_trolley(player)
+function private _glide_pose(actor)
 {
-    trolley = Spawn("script_model", player.origin);
+    self endon("death");
+    self endon("zipline_glide_done");
+    level endon("end_game");
+
+    while (true)
+    {
+        self scene::play(ZIPLINE_SCENE_IDLE, actor);
+        wait(0.05);
+    }
+}
+
+function private _travel(actor, start_struct, end_struct)
+{
+    self endon("death");
+    level endon("end_game");
+
+    forward = AnglesToForward(self.angles);
+    destination = end_struct.origin - forward * ZIPLINE_DISMOUNT_LEAD;
+    total_distance = Distance(start_struct.origin, destination);
+
+    while (true)
+    {
+        // Drive progress from the grip, compensating its offset, so the trolley
+        // stays on the cable rather than the model's origin.
+        hand_origin = actor GetTagOrigin(ZIPLINE_TROLLEY_TAG);
+        grip_offset = hand_origin - self.origin;
+        progress = VectorDot(hand_origin - start_struct.origin, forward) + ZIPLINE_SPEED_UPS * ZIPLINE_TICK;
+        if (progress > total_distance)
+        {
+            progress = total_distance;
+        }
+        self.origin = start_struct.origin + forward * progress - grip_offset - (0, 0, ZIPLINE_GRIP_DROP);
+        if (progress >= total_distance)
+        {
+            break;
+        }
+        wait(ZIPLINE_TICK);
+    }
+}
+
+function private _spawn_trolley(host)
+{
+    trolley = Spawn("script_model", host.origin);
     trolley SetModel(ZIPLINE_TROLLEY_MODEL);
     trolley NotSolid();
-    trolley LinkTo(player, ZIPLINE_TROLLEY_TAG, (0, 0, 0), (0, 0, 0));
+    trolley LinkTo(host, ZIPLINE_TROLLEY_TAG, (0, 0, 0), (0, 0, 0));
     return trolley;
 }
 
@@ -157,44 +229,3 @@ function private _ground_below(land_spot)
     return land_spot;
 }
 
-function private _glide_pose(player)
-{
-    self endon("death");
-    self endon("zipline_glide_done");
-    level endon("end_game");
-
-    while (true)
-    {
-        self scene::play(ZIPLINE_SCENE_IDLE, player);
-        wait(0.05);
-    }
-}
-
-function private _travel(player, start_struct, end_struct)
-{
-    self endon("death");
-    level endon("end_game");
-    player endon("disconnect");
-
-    forward = AnglesToForward(self.angles);
-    destination = end_struct.origin - forward * ZIPLINE_DISMOUNT_LEAD;
-    total_distance = Distance(start_struct.origin, destination);
-
-    while (true)
-    {
-        // Drive progress from the hand, so the target can't outrun it and drift up.
-        hand_origin = player GetTagOrigin(ZIPLINE_TROLLEY_TAG);
-        grip_offset = hand_origin - self.origin;
-        progress = VectorDot(hand_origin - start_struct.origin, forward) + ZIPLINE_SPEED_UPS * ZIPLINE_TICK;
-        if (progress > total_distance)
-        {
-            progress = total_distance;
-        }
-        self.origin = start_struct.origin + forward * progress - grip_offset;
-        if (progress >= total_distance)
-        {
-            break;
-        }
-        wait(ZIPLINE_TICK);
-    }
-}
