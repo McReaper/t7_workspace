@@ -27,3 +27,6 @@ material,filter_cam_bodycam
 // Zipline traversal (assets in zipline.zpkg). all_player.atr is overridden there
 // with pb_zipline_*; its core_common.csv line stays commented to avoid a duplicate.
 include,zipline
+
+// Dev: BO1 huey arrival test (heli.gdt + heli_scenes.gdt). Console: heli_test 1.
+include,heli

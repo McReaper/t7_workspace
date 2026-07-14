@@ -1,0 +1,16 @@
+scriptparsetree,scripts/zm/_heli_test.gsc
+scriptparsetree,scripts/zm/_heli_test.csc
+
+xcam,rappel_cam
+
+scriptbundle,cin_heli_test
+scriptbundle,cin_rappel_test
+scriptbundle,cin_rappel_fp
+
+xmodel,t5_veh_helo_huey
+xmodel,t5_veh_helo_huey_att_interior
+
+xanim,v_quag_b05_repeltomacv_huey
+xanim,v_huey_fly
+xanim,ch_quag_b05_repeltomacv_player
+xanim,int_quag_b05_repeltomacv_player

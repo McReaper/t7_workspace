@@ -42,6 +42,9 @@
 // Zipline traversal — client half in _zipline.csc (third-person camera + dvars).
 #using scripts\zm\_zipline;
 
+// Dev: BO1 heli intro test — client half in _heli_test.csc (rappel_cam XCam).
+#using scripts\zm\_heli_test;
+
 function main()
 {
     LuiLoad("ui.uieditor.widgets.mphudwidgets.cursorhint_image_zipline");

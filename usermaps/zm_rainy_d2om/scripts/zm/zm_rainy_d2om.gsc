@@ -57,6 +57,9 @@
 // First-person zipline traversal (feature: _zipline.gsc, config: _zipline.gsh).
 #using scripts\zm\_zipline;
 
+// Dev: BO1 huey arrival test (console: heli_test 1).
+#using scripts\zm\_heli_test;
+
 // *****************************************************************************
 // MAIN
 // *****************************************************************************
