@@ -15,6 +15,9 @@
 #using_animtree("all_player");
 
 #precache("script_bundle", "cin_heli_test");
+#precache("script_bundle", "cin_rappel_fp");
+#precache("script_bundle", "cin_rope");
+#precache("script_bundle", "cin_rope2");
 #precache("xcam", "rappel_cam");
 
 #namespace heli_test;
@@ -24,6 +27,10 @@ REGISTER_SYSTEM("heli_test", &__init__, undefined)
 function __init__()
 {
     clientfield::register("toplayer", "heli_xcam", VERSION_SHIP, 1, "int");
+    level scene::init("cin_heli_test");
+    level scene::init("cin_rappel_fp");
+    level scene::init("cin_rope");
+    level scene::init("cin_rope2");
     level thread _watch();
 }
 
@@ -85,22 +92,18 @@ function private _play()
         cam_body SetModel("c_zom_der_dempsey_viewbody");
         cam_body NotSolid();
 
-        // Rope: AnimScripted plays the deploy anim on the model's own animtree and
-        // advances it frame-by-frame (cymbal monkey pattern). The anim carries all
-        // the world motion in its bones and is authored on the same scene origin as
-        // the heli, so playing it here tracks the heli with no attach needed.
+        // Ropes: scene::play like the heli. The bundles are type/sceneType "scene"
+        // with NoSpawn=1, so the scene animates the passed model (MainAnim). Same
+        // align as the heli so they track it.
         rope = Spawn("script_model", origin);
         rope SetModel("fxanim_quag_rappelcrash02_mod");
         rope NotSolid();
-        rope UseAnimTree(#animtree);
-        rope AnimScripted("rope_deploy", origin, angles, %fxanim_quag_rappelcrash02_anim);
+        align thread scene::play("cin_rope", rope);
 
-        // Third rope (crash01, the single remaining rope) — same recipe, same origin.
         rope2 = Spawn("script_model", origin);
         rope2 SetModel("fxanim_quag_rappelcrash01_mod");
         rope2 NotSolid();
-        rope2 UseAnimTree(#animtree);
-        rope2 AnimScripted("rope_deploy", origin, angles, %fxanim_quag_rappelcrash01_anim);
+        align thread scene::play("cin_rope2", rope2);
 
         player = GetPlayers()[0];
         if (isdefined(player))
