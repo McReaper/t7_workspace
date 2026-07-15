@@ -12,6 +12,8 @@
 #insert scripts\shared\shared.gsh;
 #insert scripts\shared\version.gsh;
 
+#using_animtree("all_player");
+
 #precache("script_bundle", "cin_heli_test");
 #precache("xcam", "rappel_cam");
 
@@ -74,17 +76,31 @@ function private _play()
         interior = Spawn("script_model", origin);
         interior SetModel("t5_veh_helo_huey_att_interior");
         interior NotSolid();
-        // Tune the offset (pos, angles) if the cockpit is misaligned with the shell.
         interior LinkTo(heli, "body_animate_jnt", (0, 0, 0), (0, 0, 0));
 
         align thread scene::play("cin_heli_test", heli);
 
-        // First-person camera via the rappel_cam XCam (CSC PlayMainCamXCam), driven by
-        // the heli_xcam clientfield. The body anim still comes from the cin_rappel_fp
-        // scene played on cam_body; the XCam carries the camera + first-person body.
+        // First-person body + camera: rappel_cam XCam (played CSC via the heli_xcam CF).
         cam_body = Spawn("script_model", origin);
         cam_body SetModel("c_zom_der_dempsey_viewbody");
         cam_body NotSolid();
+
+        // Rope: AnimScripted plays the deploy anim on the model's own animtree and
+        // advances it frame-by-frame (cymbal monkey pattern). The anim carries all
+        // the world motion in its bones and is authored on the same scene origin as
+        // the heli, so playing it here tracks the heli with no attach needed.
+        rope = Spawn("script_model", origin);
+        rope SetModel("fxanim_quag_rappelcrash02_mod");
+        rope NotSolid();
+        rope UseAnimTree(#animtree);
+        rope AnimScripted("rope_deploy", origin, angles, %fxanim_quag_rappelcrash02_anim);
+
+        // Third rope (crash01, the single remaining rope) — same recipe, same origin.
+        rope2 = Spawn("script_model", origin);
+        rope2 SetModel("fxanim_quag_rappelcrash01_mod");
+        rope2 NotSolid();
+        rope2 UseAnimTree(#animtree);
+        rope2 AnimScripted("rope_deploy", origin, angles, %fxanim_quag_rappelcrash01_anim);
 
         player = GetPlayers()[0];
         if (isdefined(player))
@@ -100,6 +116,8 @@ function private _play()
         }
 
         cam_body Delete();
+        rope Delete();
+        rope2 Delete();
         interior Delete();
         heli Delete();
         align Delete();

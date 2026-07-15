@@ -6,11 +6,16 @@ xcam,rappel_cam
 scriptbundle,cin_heli_test
 scriptbundle,cin_rappel_test
 scriptbundle,cin_rappel_fp
+scriptbundle,cin_rope
 
 xmodel,t5_veh_helo_huey
 xmodel,t5_veh_helo_huey_att_interior
+xmodel,fxanim_quag_rappelcrash02_mod
+xmodel,fxanim_quag_rappelcrash01_mod
 
 xanim,v_quag_b05_repeltomacv_huey
 xanim,v_huey_fly
 xanim,ch_quag_b05_repeltomacv_player
 xanim,int_quag_b05_repeltomacv_player
+xanim,fxanim_quag_rappelcrash02_anim
+xanim,fxanim_quag_rappelcrash01_anim
