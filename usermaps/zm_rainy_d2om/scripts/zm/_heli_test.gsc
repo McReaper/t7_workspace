@@ -18,6 +18,9 @@
 #precache("script_bundle", "cin_rappel_fp");
 #precache("script_bundle", "cin_rope");
 #precache("script_bundle", "cin_rope2");
+#precache("script_bundle", "cin_rappel_npc1");
+#precache("script_bundle", "cin_rappel_npc2");
+#precache("script_bundle", "cin_pilot");
 #precache("xcam", "rappel_cam");
 
 #namespace heli_test;
@@ -31,7 +34,22 @@ function __init__()
     level scene::init("cin_rappel_fp");
     level scene::init("cin_rope");
     level scene::init("cin_rope2");
+    level scene::init("cin_rappel_npc1");
+    level scene::init("cin_rappel_npc2");
+    level scene::init("cin_pilot");
     level thread _watch();
+}
+
+// Waits on the heli anim's "crash_begin" self-notify (frame 350) → remove the pilot.
+function private _pilot_out(pilot)
+{
+    self endon("death");
+    level endon("end_game");
+    self waittill("crash_begin");
+    if (isdefined(pilot))
+    {
+        pilot Delete();
+    }
 }
 
 function private _watch()
@@ -105,6 +123,30 @@ function private _play()
         rope2 NotSolid();
         align thread scene::play("cin_rope2", rope2);
 
+        // NPC rappellers (barnes + soldier anims retargeted onto mwr_mp_usmc_lmg_pb_base),
+        // same align so they slot into the scene beside the player.
+        npc1 = Spawn("script_model", origin);
+        npc1 SetModel("c_zom_der_nikolai_mpc_fb");
+        npc1 NotSolid();
+        align thread scene::play("cin_rappel_npc1", npc1);
+
+        npc2 = Spawn("script_model", origin);
+        npc2 SetModel("c_zom_der_takeo_mpc_fb");
+        npc2 NotSolid();
+        align thread scene::play("cin_rappel_npc2", npc2);
+
+        // Copilot: place its align once at the heli's driver-seat tag (no link), then
+        // play the idle scene there so he sits in the cockpit.
+        pilot_align = Spawn("script_model", heli GetTagOrigin("tag_driver"));
+        pilot_align.angles = heli GetTagAngles("tag_driver");
+        pilot_align NotSolid();
+
+        npc3 = Spawn("script_model", origin);
+        npc3 SetModel("c_zom_der_dempsey_mpc_fb");
+        npc3 NotSolid();
+        pilot_align thread scene::play("cin_pilot", npc3);
+        heli thread _pilot_out(npc3);
+
         player = GetPlayers()[0];
         if (isdefined(player))
         {
@@ -121,6 +163,13 @@ function private _play()
         cam_body Delete();
         rope Delete();
         rope2 Delete();
+        npc1 Delete();
+        npc2 Delete();
+        if (isdefined(npc3))
+        {
+            npc3 Delete();
+        }
+        pilot_align Delete();
         interior Delete();
         heli Delete();
         align Delete();
