@@ -12,8 +12,6 @@
 #insert scripts\shared\shared.gsh;
 #insert scripts\shared\version.gsh;
 
-#using_animtree("all_player");
-
 #precache("script_bundle", "cin_heli_test");
 #precache("script_bundle", "cin_rappel_fp");
 #precache("script_bundle", "cin_rope");

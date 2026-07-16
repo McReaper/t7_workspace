@@ -4821,9 +4821,6 @@ main
 		pb_zipline_loop
 		pb_zipline_exit
 		int_quag_b05_repeltomacv_player
-		o_hue_b02_rope_bowman_a
-		fxanim_quag_rappelcrash02_anim
-		fxanim_quag_rappelcrash01_anim
 
 	}
 }
