@@ -20,6 +20,8 @@
 #precache("script_bundle", "cin_rappel_npc2");
 #precache("script_bundle", "cin_pilot");
 #precache("xcam", "rappel_cam");
+#precache("fx", "_reapy/fx_huey_main_blade_full");
+#precache("fx", "_reapy/fx_huey_small_blade_full");
 
 #namespace heli_test;
 
@@ -35,6 +37,8 @@ function __init__()
     level scene::init("cin_rappel_npc1");
     level scene::init("cin_rappel_npc2");
     level scene::init("cin_pilot");
+    level._effect["heli_rotor_main"] = "_reapy/fx_huey_main_blade_full";
+    level._effect["heli_rotor_tail"] = "_reapy/fx_huey_small_blade_full";
     level thread _watch();
 }
 
@@ -103,6 +107,11 @@ function private _play()
 
         align thread scene::play("cin_heli_test", heli);
 
+        // Rotors: the spinning blur is a looping FX (ported from BO1) played on the
+        // rotor joints — the FX engine handles the model + spin, no script spinning.
+        main_rotor_fx = PlayFXOnTag(level._effect["heli_rotor_main"], heli, "main_rotor_jnt");
+        tail_rotor_fx = PlayFXOnTag(level._effect["heli_rotor_tail"], heli, "tail_rotor_jnt");
+
         // First-person body + camera: rappel_cam XCam (played CSC via the heli_xcam CF).
         cam_body = Spawn("script_model", origin);
         cam_body SetModel("c_zom_der_dempsey_viewbody");
@@ -168,6 +177,14 @@ function private _play()
             npc3 Delete();
         }
         pilot_align Delete();
+        if (isdefined(main_rotor_fx))
+        {
+            main_rotor_fx Delete();
+        }
+        if (isdefined(tail_rotor_fx))
+        {
+            tail_rotor_fx Delete();
+        }
         interior Delete();
         heli Delete();
         align Delete();

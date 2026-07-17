@@ -13,6 +13,8 @@ scriptbundle,cin_pilot
 
 xmodel,t5_veh_helo_huey
 xmodel,t5_veh_helo_huey_att_interior
+xmodel,fx_prop_huey_hub_blur
+xmodel,fx_prop_huey_rear_hub
 xmodel,fxanim_quag_rappelcrash02_mod
 xmodel,fxanim_quag_rappelcrash01_mod
 xmodel,c_zom_der_dempsey_viewbody
@@ -28,3 +30,6 @@ xanim,fxanim_quag_rappelcrash01_anim
 xanim,ch_quag_b05_repeltomacv_barnes
 xanim,ch_quag_b05_repeltomacv_soldier
 xanim,ai_huey_pilot1_idle_loop1
+
+fx,_reapy/fx_huey_main_blade_full
+fx,_reapy/fx_huey_small_blade_full
