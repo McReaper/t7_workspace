@@ -3,7 +3,7 @@ scriptparsetree,scripts/zm/_heli_test.csc
 
 xcam,rappel_cam
 
-scriptbundle,cin_heli_test
+scriptbundle,cin_heli_crash
 scriptbundle,cin_rappel_fp
 scriptbundle,cin_rope
 scriptbundle,cin_rope2
@@ -33,3 +33,5 @@ xanim,ai_huey_pilot1_idle_loop1
 
 fx,_reapy/fx_huey_main_blade_full
 fx,_reapy/fx_huey_small_blade_full
+fx,killstreaks/fx_heli_exp_lg
+fx,killstreaks/fx_heli_smk_trail_tail

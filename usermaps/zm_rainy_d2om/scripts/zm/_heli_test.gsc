@@ -10,8 +10,9 @@
 
 #insert scripts\shared\shared.gsh;
 #insert scripts\shared\version.gsh;
+#insert scripts\zm\_heli_test.gsh;
 
-#precache("script_bundle", "cin_heli_test");
+#precache("script_bundle", "cin_heli_crash");
 #precache("script_bundle", "cin_rappel_fp");
 #precache("script_bundle", "cin_rope");
 #precache("script_bundle", "cin_rope2");
@@ -19,8 +20,6 @@
 #precache("script_bundle", "cin_rappel_npc2");
 #precache("script_bundle", "cin_pilot");
 #precache("xcam", "rappel_cam");
-#precache("fx", "_reapy/fx_huey_main_blade_full");
-#precache("fx", "_reapy/fx_huey_small_blade_full");
 
 #namespace heli_test;
 
@@ -28,21 +27,19 @@ REGISTER_SYSTEM("heli_test", &__init__, undefined)
 
 function __init__()
 {
-    clientfield::register("toplayer", "heli_xcam", VERSION_SHIP, 1, "int");
     clientfield::register("scriptmover", "heli_snd", VERSION_SHIP, 1, "int");
-    level scene::init("cin_heli_test");
+    clientfield::register("scriptmover", "heli_fx", VERSION_SHIP, 3, "int");
+    level scene::init("cin_heli_crash");
     level scene::init("cin_rappel_fp");
     level scene::init("cin_rope");
     level scene::init("cin_rope2");
     level scene::init("cin_rappel_npc1");
     level scene::init("cin_rappel_npc2");
     level scene::init("cin_pilot");
-    level._effect["heli_rotor_main"] = "_reapy/fx_huey_main_blade_full";
-    level._effect["heli_rotor_tail"] = "_reapy/fx_huey_small_blade_full";
     level thread _watch();
 }
 
-// Waits on the heli anim's "crash_begin" self-notify (frame 350) → remove the pilot.
+// Removes the cockpit pilot on the heli anim's "crash_begin" self-notify (frame 279).
 function private _pilot_out(pilot)
 {
     self endon("death");
@@ -54,14 +51,32 @@ function private _pilot_out(pilot)
     }
 }
 
-// Cuts the looping heli SFX on the anim's "heli_impact" self-notify (frame 608), so the
-// rotor bed stops at the crash instead of running to the scene's last frame.
+// Cuts the looping rotor bed on the anim's "heli_impact" self-notify (frame 550), so it
+// stops at the crash instead of running to the scene's last frame.
 function private _snd_out()
 {
     self endon("death");
     level endon("end_game");
     self waittill("heli_impact");
     self clientfield::set("heli_snd", 0);
+}
+
+// Drives the crash FX through the heli_fx clientfield (all FX play CSC — a server FX can't be
+// stopped without deleting its host entity, which would kill the heli mid-anim). Fire trail on
+// crash_begin (279), first explosion on heli_impact (550), second on heli_explo (608).
+function private _crash_fx()
+{
+    self endon("death");
+    level endon("end_game");
+
+    self waittill("crash_begin");
+    self clientfield::set("heli_fx", HELI_FX_CRASHING);
+
+    self waittill("heli_impact");
+    self clientfield::set("heli_fx", HELI_FX_IMPACT);
+
+    self waittill("heli_explo");
+    self clientfield::set("heli_fx", HELI_FX_EXPLODE);
 }
 
 function private _watch()
@@ -90,7 +105,6 @@ function private _watch()
 function private _play()
 {
     level endon("end_game");
-    _cleanup_prev();
     level.heli_test_playing = true;
 
     spot = struct::get("heli_intro_spawn", "targetname");
@@ -116,14 +130,13 @@ function private _play()
         interior NotSolid();
         interior LinkTo(heli, "body_animate_jnt", (0, 0, 0), (0, 0, 0));
 
-        // Rotor blur = looping FX ported from BO1, spun by the FX engine on the joints.
-        main_rotor_fx = PlayFXOnTag(level._effect["heli_rotor_main"], heli, "main_rotor_jnt");
-        tail_rotor_fx = PlayFXOnTag(level._effect["heli_rotor_tail"], heli, "tail_rotor_jnt");
+        // Start the CSC crash-FX state machine (see _crash_fx): rotor blur spinning.
+        heli clientfield::set("heli_fx", HELI_FX_FLYING);
 
         // Rotor bed: looping SFX played CSC on the heli (server PlayLoopSound is silent).
         heli clientfield::set("heli_snd", 1);
 
-        // First-person body + camera: rappel_cam XCam (played CSC via the heli_xcam CF).
+        // First-person view body, animated by the cin_rappel_fp scene.
         cam_body = Spawn("script_model", origin);
         cam_body SetModel("c_zom_der_dempsey_viewbody");
         cam_body NotSolid();
@@ -161,34 +174,18 @@ function private _play()
         pilot_align thread scene::play("cin_pilot", npc3);
         heli thread _pilot_out(npc3);
         heli thread _snd_out();
+        heli thread _crash_fx();
 
         level.heli_test_ents = array(align, heli, interior, cam_body, rope, rope2, npc1, npc2, npc3, pilot_align);
 
-        player = GetPlayers()[0];
-        if (isdefined(player))
-        {
-            player clientfield::set_to_player("heli_xcam", 1);
-        }
-
         align thread scene::play("cin_rappel_fp", cam_body);
+        align thread scene::play("cin_heli_crash", heli);
 
-        // Blocking (un-threaded): scene::play returns on the native scene_done, fired
-        // when the heli anim reaches its last frame — no manual end-notetrack needed.
-        // Nothing is stopped or deleted before it returns, so no sound gets cut mid-anim.
-        align scene::play("cin_heli_test", heli);
+        // Teardown on the heli anim's final-frame self-notify (heli_end @1095). The anim holds
+        // the crashed pose through to its last frame, so the explosions play out with no
+        // scripted delay needed.
+        heli waittill("heli_end");
 
-        if (isdefined(main_rotor_fx))
-        {
-            main_rotor_fx Delete();
-        }
-        if (isdefined(tail_rotor_fx))
-        {
-            tail_rotor_fx Delete();
-        }
-        if (isdefined(player))
-        {
-            player clientfield::set_to_player("heli_xcam", 0);
-        }
         _cleanup_prev();
     }
 
