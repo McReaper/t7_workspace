@@ -19,22 +19,20 @@
 #define FLYBY_FLARE_PEAK    0.5    // split of the brake time between nose-up and settle (0..1)
 #define FLYBY_FLARE_EASE    0.4    // ease-in/out fraction on the flare rotations (0..0.5); higher = softer
 #define HELI_YAW_OFFSET     0      // free-heli nose = its own angles.yaw; add 180 if it flies backward, +/-90 if sideways
-// Chase camera: players PlayerLinkToDelta'd to a cam ent MoveTo'd in parallel with the heli, sat
-// behind + above it and angled at it, with clamped free-look. (A link, not CameraSetPosition, so the
-// player can look around; a MoveTo'd ent, not a heli-tag link, so it stays smooth.)
-#define FLYBY_CHASE_DIST    450    // how far behind the heli the chase cam sits
-#define FLYBY_CHASE_HEIGHT  350     // how far above the heli origin the chase cam sits
-#define FLYBY_LOOK_RIGHT    35     // free-look clamp (deg) from the heli-facing center; narrow = locked
-#define FLYBY_LOOK_LEFT     35
-#define FLYBY_LOOK_UP       -60     // this arc governs the downward range here — cam sits above the heli
-#define FLYBY_LOOK_DOWN     20
-#define FLYBY_ZOOM_OFFSET   90     // how close behind the heli the cam pushes in during the fade-out
 
-// Black-fade handoff (fly-in -> first-person rappel scene). Fade out + zoom, then start the scene
-// only once fully black (holding a server frame), then fade back in.
-// Own LUI menu id so our fades don't collide with the scene's IGC fade on the default black menu
-// (scene_shared.csc postfx_igc_zombies does an instant screen_fade_out(0) that would hard-cut ours).
-#define FADE_MENU_ID        "heli_intro"
-#define FLYBY_ZOOM_TIME     2.2    // seconds for the exterior->scene push-in; starts before the fade
-#define FADE_OUT_TIME       1.1    // seconds to fade the screen to black (last part of the zoom)
-#define FADE_HOLD           0.6    // black hold over the handoff before clearing (hides the flip/spin-up)
+// First-person ride: players PlayerLinkToDelta'd directly to a heli tag, with clamped free-look.
+#define HELI_RIDE_TAG       "tag_passenger"   // heli tag the player rides on (first person)
+#define FLYBY_LOOK_RIGHT    45     // free-look clamp (deg) from the ride facing; narrow = locked
+#define FLYBY_LOOK_LEFT     45
+#define FLYBY_LOOK_UP       45
+#define FLYBY_LOOK_DOWN     45
+
+// Rider bodies visible during the ride (pilot + the player's own body), linked to heli tags and
+// playing the driver idle so they ride along animated. animation::play links to the tag + animates.
+#define HELI_PILOT_MODEL    "c_zom_der_dempsey_mpc_fb"    // pilot on tag_driver
+#define HELI_RIDER_MODEL    "c_zom_der_nikolai_mpc_fb"    // the player's own body on the ride tag
+#define HELI_RIDE_IDLE      "ai_huey_pilot1_idle_loop1"   // driver idle (same anim cin_pilot uses)
+
+// Frames the flight visuals (heli + FX + riders) persist while the scene spins up, so there's no
+// gap; the two overlap statically at the same pose for these frames.
+#define HELI_HANDOFF_FRAMES 3

@@ -3,8 +3,8 @@
 
 #using scripts\codescripts\struct;
 
+#using scripts\shared\animation_shared;
 #using scripts\shared\clientfield_shared;
-#using scripts\shared\lui_shared;
 #using scripts\shared\math_shared;
 #using scripts\shared\scene_shared;
 #using scripts\shared\system_shared;
@@ -13,6 +13,8 @@
 #insert scripts\shared\shared.gsh;
 #insert scripts\shared\version.gsh;
 #insert scripts\zm\_heli_test.gsh;
+
+#using_animtree("generic");
 
 #precache("script_bundle", "cin_heli_crash");
 #precache("script_bundle", "cin_rappel_fp");
@@ -123,26 +125,9 @@ function private _spline_pos(a_pts, t)
     return (p1 * 2 + (p2 - p0) * u + (p0 * 2 - p1 * 5 + p2 * 4 - p3) * u2 + (p1 * 3 - p2 * 3 + p3 - p0) * u3) * 0.5;
 }
 
-// Places the chase cam behind + above the heli, rotated to its heading (yaw) and angled down at it,
-// so it follows the heli's turns. t <= 0 sets instantly; t > 0 eases over t for the per-piece follow.
-function private _chase_cam(cam_ent, heli_pos, yaw, t)
-{
-    fwd = AnglesToForward((0, yaw, 0));
-    cam_pos = heli_pos + (0, 0, FLYBY_CHASE_HEIGHT) - fwd * FLYBY_CHASE_DIST;
-    cam_ang = VectorToAngles(fwd * FLYBY_CHASE_DIST - (0, 0, FLYBY_CHASE_HEIGHT));
-    if (t <= 0)
-    {
-        cam_ent.origin = cam_pos;
-        cam_ent.angles = cam_ang;
-        return;
-    }
-    cam_ent MoveTo(cam_pos, t);
-    cam_ent RotateTo(cam_ang, t);
-}
-
 // Flies the heli along the Catmull-Rom curve through a_pts as short linear MoveTo pieces (smooth),
-// banking into turns. The chase cam follows the heli's heading (yaw only, no bank roll).
-function private _flyby(cam_ent, heli, a_pts)
+// banking into turns. The player rides first person, linked to a heli tag.
+function private _flyby(heli, a_pts)
 {
     level endon("end_game");
 
@@ -150,8 +135,8 @@ function private _flyby(cam_ent, heli, a_pts)
     start_yaw = VectorToAngles(a_pts[1] - a_pts[0])[1];
     heli.origin = a_pts[0];
     heli.angles = (FLYBY_PITCH_FWD, start_yaw + HELI_YAW_OFFSET, 0);
-    _chase_cam(cam_ent, a_pts[0], start_yaw, 0);
-    _ride_camera(cam_ent);
+    _ride_camera(heli);
+    _spawn_riders(heli);
 
     approx_len = 0;
     for (i = 1; i < n; i++)
@@ -190,7 +175,6 @@ function private _flyby(cam_ent, heli, a_pts)
 
         heli MoveTo(pos, t_seg);
         heli RotateTo((FLYBY_PITCH_FWD, yaw + HELI_YAW_OFFSET, roll), t_seg);
-        _chase_cam(cam_ent, pos, yaw, t_seg);
         wait(t_seg);
 
         prev_pos = pos;
@@ -198,8 +182,7 @@ function private _flyby(cam_ent, heli, a_pts)
     }
 
     // Brake to a stop, entering at cruise speed (brake_time = 2*dist/speed, decel over the whole move)
-    // so there's no velocity jump. Flare runs threaded, so this returns as the brake begins and the
-    // caller's zoom+fade overlaps it.
+    // so there's no velocity jump. Nose flares up then settles level over the brake.
     end_pos = a_pts[n - 1];
     final_yaw = prev_yaw;
     if (LengthSquared(end_pos - prev_pos) > 0.01)
@@ -210,6 +193,7 @@ function private _flyby(cam_ent, heli, a_pts)
     brake_time = 2 * Distance(prev_pos, end_pos) / FLYBY_SPEED_UPS;
     heli MoveTo(end_pos, brake_time, 0, brake_time);
     heli thread _flare(final_yaw + HELI_YAW_OFFSET, brake_time);
+    wait(brake_time);
 }
 
 // Nose flares up then settles level over the brake time (eased), on the heli independently so the
@@ -224,6 +208,41 @@ function private _flare(yaw, brake_time)
     self RotateTo((-1 * FLYBY_PITCH_BRAKE, yaw, 0), up_time, up_time * FLYBY_FLARE_EASE, up_time * FLYBY_FLARE_EASE);
     wait(up_time);
     self RotateTo((0, yaw, 0), down_time, down_time * FLYBY_FLARE_EASE, down_time * FLYBY_FLARE_EASE);
+}
+
+// Pilot (on tag_driver) + the player's own body (on the ride tag), linked to the heli tags via
+// animation::play so they ride along animated with the driver idle.
+function private _spawn_riders(heli)
+{
+    pilot = Spawn("script_model", heli GetTagOrigin("tag_driver"));
+    pilot SetModel(HELI_PILOT_MODEL);
+    pilot NotSolid();
+    pilot UseAnimTree(#animtree);
+    pilot thread animation::play(HELI_RIDE_IDLE, heli, "tag_driver");
+
+    body = Spawn("script_model", heli GetTagOrigin(HELI_RIDE_TAG));
+    body SetModel(HELI_RIDER_MODEL);
+    body NotSolid();
+    body UseAnimTree(#animtree);
+    body thread animation::play(HELI_RIDE_IDLE, heli, HELI_RIDE_TAG);
+
+    level.heli_test_riders = array(pilot, body);
+}
+
+function private _cleanup_riders()
+{
+    if (!isdefined(level.heli_test_riders))
+    {
+        return;
+    }
+    foreach (ent in level.heli_test_riders)
+    {
+        if (isdefined(ent))
+        {
+            ent Delete();
+        }
+    }
+    level.heli_test_riders = undefined;
 }
 
 function private _watch()
@@ -276,17 +295,13 @@ function private _play()
         interior NotSolid();
         interior LinkTo(heli, "body_animate_jnt", (0, 0, 0), (0, 0, 0));
 
-        // FP rappel body (animated by cin_rappel_fp). Hidden during the 3rd-person fly-in.
+        // FP rappel body (animated by cin_rappel_fp). Hidden during the first-person ride.
         cam_body = Spawn("script_model", spawn_node.origin);
         cam_body SetModel("c_zom_der_dempsey_viewbody");
         cam_body NotSolid();
         cam_body Hide();
 
-        cam_ent = Spawn("script_model", spawn_node.origin);
-        cam_ent SetModel("tag_origin");
-        cam_ent NotSolid();
-
-        level.heli_test_ents = array(align, heli, interior, cam_body, cam_ent);
+        level.heli_test_ents = array(align, heli, interior, cam_body);
 
         // Rotor blur + rotor-bed loop for the whole intro (both CSC).
         heli clientfield::set("heli_fx", HELI_FX_FLYING);
@@ -296,32 +311,13 @@ function private _play()
         {
             end_pt = a_pts[a_pts.size - 1];
             final_yaw = VectorToAngles(end_pt - a_pts[a_pts.size - 2])[1];
-            fwd = AnglesToForward((0, final_yaw, 0));
 
-            // _flyby returns as the brake begins; the zoom+fade overlaps it. Aim at the arrival rotor
-            // (heli still braking toward it): its local tag offset added to the arrival origin.
-            _flyby(cam_ent, heli, a_pts);
+            _flyby(heli, a_pts);
 
-            arrival_rotor = end_pt + (heli GetTagOrigin("main_rotor_jnt") - heli.origin);
-            zoom_pos = arrival_rotor - fwd * FLYBY_ZOOM_OFFSET;
-
-            // Long slow push-in; the fade only covers its last FADE_OUT_TIME, so black lands as the
-            // zoom finishes.
-            cam_ent MoveTo(zoom_pos, FLYBY_ZOOM_TIME);
-            cam_ent RotateTo(VectorToAngles(arrival_rotor - zoom_pos), FLYBY_ZOOM_TIME);
-            wait(FLYBY_ZOOM_TIME - FADE_OUT_TIME);
-            foreach (player in level.heli_test_players)
-            {
-                player thread lui::screen_fade_out(FADE_OUT_TIME, "black", FADE_MENU_ID);
-            }
-            wait(FADE_OUT_TIME);
-
-            // Fully black: release the link and anchor align at the arrival facing (the crash anim
-            // faces the anchor directly). The server frame settles it; the 90-deg flip is under black.
-            _release_ride_camera();
+            // Anchor the scene at the arrival. The heli + FX + riders stay up (player still riding)
+            // while the scenes below spin up; we release + drop the riders after HELI_HANDOFF_FRAMES.
             align.origin = end_pt;
             align.angles = (0, final_yaw, 0);
-            WAIT_SERVER_FRAME;
         }
 
         // Ropes / rappellers: NoSpawn scene bundles, so we provide the models; all anchor on align.
@@ -358,23 +354,20 @@ function private _play()
         heli thread _snd_out();
         heli thread _crash_fx();
 
-        level.heli_test_ents = array(align, heli, interior, cam_body, cam_ent, rope, rope2, npc1, npc2, npc3, pilot_align);
+        level.heli_test_ents = array(align, heli, interior, cam_body, rope, rope2, npc1, npc2, npc3, pilot_align);
 
-        // First-person rappel scene drives its own rappel_cam — the chase link is already released,
-        // so we just play it. cin_heli_crash drives the heli; both anchor on align.
+        // Rappel scene drives its own rappel_cam. cin_heli_crash drives the heli; both anchor on align.
         cam_body Show();
         align thread scene::play("cin_rappel_fp", cam_body);
         align thread scene::play("cin_heli_crash", heli);
 
-        // Hold black over the handoff, then clear instantly (a smooth LUI fade-in can't run during
-        // the scene's IGC — the scene reveals itself). Clearing our own menu avoids a stuck black.
+        // Let the flight visuals overlap the scene spin-up for a few frames, then release the player
+        // ride and drop the ride riders (the scene's own pilot/rappellers have taken over).
         if (b_flyby)
         {
-            wait(FADE_HOLD);
-            foreach (player in level.heli_test_players)
-            {
-                player thread lui::screen_fade_in(0, "black", FADE_MENU_ID);
-            }
+            wait(HELI_HANDOFF_FRAMES * SERVER_FRAME);
+            _release_ride_camera();
+            _cleanup_riders();
         }
 
         // Teardown on the heli anim's last-frame self-notify (heli_end @1095).
@@ -387,15 +380,16 @@ function private _play()
     level.heli_test_playing = undefined;
 }
 
-// Chase cam: link each player's view to cam_ent (positioned + MoveTo'd by _flyby). PlayerLinkToDelta
-// gives clamped free-look; the granular locks replace FreezeControls (doesn't survive a link).
-function private _ride_camera(cam_ent)
+// First-person ride: link each player to the heli's ride tag with clamped free-look, so they ride
+// inside the heli and follow its motion+rotation. Granular locks replace FreezeControls (doesn't
+// survive a link).
+function private _ride_camera(heli)
 {
     level.heli_test_players = GetPlayers();
     foreach (player in level.heli_test_players)
     {
-        // Save the map origin — PlayerLinkToDelta teleports the body up, so we drop it back grounded
-        // at the handoff (else it falls to its death).
+        // Save the map origin — the link teleports the body onto the heli, so we drop it back
+        // grounded at the handoff (else it falls to its death).
         player.heli_test_org = player.origin;
         player.heli_test_ang = player.angles;
 
@@ -405,7 +399,7 @@ function private _ride_camera(cam_ent)
         player AllowProne(false);
         player setClientUIVisibilityFlag("hud_visible", 0);
         player Ghost();
-        player PlayerLinkToDelta(cam_ent, undefined, 1, FLYBY_LOOK_RIGHT, FLYBY_LOOK_LEFT, FLYBY_LOOK_UP, FLYBY_LOOK_DOWN);
+        player PlayerLinkToDelta(heli, HELI_RIDE_TAG, 1, FLYBY_LOOK_RIGHT, FLYBY_LOOK_LEFT, FLYBY_LOOK_UP, FLYBY_LOOK_DOWN);
     }
 }
 
@@ -465,6 +459,7 @@ function private _restore_players()
 
 function private _cleanup_prev()
 {
+    _cleanup_riders();   // safety: released at the handoff, but not on an aborted run
     if (!isdefined(level.heli_test_ents))
     {
         return;
