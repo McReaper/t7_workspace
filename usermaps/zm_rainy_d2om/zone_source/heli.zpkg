@@ -4,6 +4,7 @@ scriptparsetree,scripts/zm/_heli_test.csc
 xcam,rappel_cam
 
 scriptbundle,cin_heli_crash
+scriptbundle,cin_heli_fly
 scriptbundle,cin_rappel_fp
 scriptbundle,cin_rope
 scriptbundle,cin_rope2
