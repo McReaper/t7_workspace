@@ -5,6 +5,7 @@
 
 #using scripts\shared\clientfield_shared;
 #using scripts\shared\lui_shared;
+#using scripts\shared\math_shared;
 #using scripts\shared\scene_shared;
 #using scripts\shared\system_shared;
 #using scripts\shared\util_shared;
@@ -86,54 +87,109 @@ function private _get_node(str_targetname)
     return node;
 }
 
-// End of heli_intro_spawn's target chain: where the heli flies to and crashes (straight line, so
-// only the spawn and the arrival matter).
-function private _arrival_node(spawn)
+// Ordered point list of the heli_intro_spawn target chain (any node count).
+function private _flyby_path()
 {
-    node = spawn;
-    while (isdefined(node.target))
+    a_pts = [];
+    node = _get_node("heli_intro_spawn");
+    while (isdefined(node))
     {
-        next = _get_node(node.target);
-        if (!isdefined(next))
+        a_pts[a_pts.size] = node.origin;
+        if (!isdefined(node.target))
         {
             break;
         }
-        node = next;
+        node = _get_node(node.target);
     }
-    return node;
+    return a_pts;
 }
 
-// Straight MoveTo from spawn to crash point (engine-interpolated = smooth), easing into a nose-down
-// lean then leveling. Huey nose is 90 deg off +X, so align carries travel + HELI_YAW_OFFSET.
-function private _flyby(align, cam_ent, start_pt, end_pt)
+// Catmull-Rom position along the point list at global param t in [0, count-1].
+function private _spline_pos(a_pts, t)
+{
+    n = a_pts.size;
+    seg = Int(t);
+    if (seg >= n - 1)
+    {
+        return a_pts[n - 1];
+    }
+    u = t - seg;
+    p1 = a_pts[seg];
+    p2 = a_pts[seg + 1];
+    p0 = (seg > 0 ? a_pts[seg - 1] : p1);
+    p3 = (seg + 2 < n ? a_pts[seg + 2] : p2);
+    u2 = u * u;
+    u3 = u2 * u;
+    return (p1 * 2 + (p2 - p0) * u + (p0 * 2 - p1 * 5 + p2 * 4 - p3) * u2 + (p1 * 3 - p2 * 3 + p3 - p0) * u3) * 0.5;
+}
+
+// Flies the heli along the Catmull-Rom curve through a_pts, sampled into short linear MoveTo pieces
+// (client-interpolated = smooth), banking the model into its turns and leveling out at the end. The
+// camera ent rides a constant behind+above offset with fixed angles, so the view stays steady while
+// the heli banks within the frame. Nose alignment is tuned via HELI_YAW_OFFSET.
+function private _flyby(cam_ent, heli, a_pts)
 {
     level endon("end_game");
 
-    travel = VectorToAngles(end_pt - start_pt);
-    yaw = travel[1] + HELI_YAW_OFFSET;
-    fwd = AnglesToForward(travel);
-
+    n = a_pts.size;
+    fwd = AnglesToForward(VectorToAngles(a_pts[n - 1] - a_pts[0]));
     cam_offset = (0, 0, FLYBY_CHASE_HEIGHT) - fwd * FLYBY_CHASE_DIST;
-    cam_view = VectorToAngles(fwd * FLYBY_CHASE_DIST - (0, 0, FLYBY_CHASE_HEIGHT));   // cam -> heli
 
-    duration = Distance(start_pt, end_pt) / FLYBY_SPEED_UPS;
-    if (duration < FLYBY_LEVEL_TIME * 2)
-    {
-        duration = FLYBY_LEVEL_TIME * 2;
-    }
-
-    align.origin = start_pt;
-    align.angles = (travel[0], yaw, 0);
-    cam_ent.origin = start_pt + cam_offset;
-    cam_ent.angles = cam_view;
+    start_yaw = VectorToAngles(a_pts[1] - a_pts[0])[1];
+    heli.origin = a_pts[0];
+    heli.angles = (FLYBY_PITCH_FWD, start_yaw + HELI_YAW_OFFSET, 0);
+    cam_ent.origin = a_pts[0] + cam_offset;
+    cam_ent.angles = VectorToAngles(fwd * FLYBY_CHASE_DIST - (0, 0, FLYBY_CHASE_HEIGHT));
     _ride_camera(cam_ent);
 
-    align RotateTo((travel[0] + FLYBY_PITCH_FWD, yaw, 0), FLYBY_LEVEL_TIME);
-    align MoveTo(end_pt, duration);
-    cam_ent MoveTo(end_pt + cam_offset, duration);
-    wait(duration - FLYBY_LEVEL_TIME);
-    align RotateTo((travel[0], yaw, 0), FLYBY_LEVEL_TIME);
-    wait(FLYBY_LEVEL_TIME);
+    approx_len = 0;
+    for (i = 1; i < n; i++)
+    {
+        approx_len += Distance(a_pts[i - 1], a_pts[i]);
+    }
+    num_pieces = Int(approx_len / FLYBY_SEG_LEN);
+    if (num_pieces < 2)
+    {
+        num_pieces = 2;
+    }
+
+    prev_pos = a_pts[0];
+    prev_yaw = start_yaw;
+    for (i = 1; i <= num_pieces; i++)
+    {
+        frac = i / num_pieces;
+        pos = _spline_pos(a_pts, (n - 1) * frac);
+        dir = pos - prev_pos;
+
+        t_seg = Length(dir) / FLYBY_SPEED_UPS;
+        if (t_seg < 0.05)
+        {
+            t_seg = 0.05;
+        }
+
+        yaw = prev_yaw;
+        if (LengthSquared(dir) > 0.01)
+        {
+            yaw = VectorToAngles(dir)[1];
+        }
+        roll = math::clamp(-1 * FLYBY_BANK_PER_DEG * AngleClamp180(yaw - prev_yaw), -1 * FLYBY_BANK_MAX, FLYBY_BANK_MAX);
+
+        level_blend = 0;
+        if (frac > FLYBY_LEVEL_FRAC)
+        {
+            level_blend = (frac - FLYBY_LEVEL_FRAC) / (1 - FLYBY_LEVEL_FRAC);
+        }
+        pitch = FLYBY_PITCH_FWD * (1 - level_blend);
+        roll = roll * (1 - level_blend);
+
+        heli MoveTo(pos, t_seg);
+        heli RotateTo((pitch, yaw + HELI_YAW_OFFSET, roll), t_seg);
+        cam_ent MoveTo(pos + cam_offset, t_seg);
+        wait(t_seg);
+
+        prev_pos = pos;
+        prev_yaw = yaw;
+    }
 }
 
 function private _watch()
@@ -167,8 +223,8 @@ function private _play()
     spawn_node = _get_node("heli_intro_spawn");
     if (isdefined(spawn_node))
     {
-        arrival = _arrival_node(spawn_node);
-        b_flyby = isdefined(spawn_node.target);
+        a_pts = _flyby_path();
+        b_flyby = a_pts.size >= 2;
 
         align = Spawn("script_model", spawn_node.origin);
         align SetModel("tag_origin");
@@ -204,14 +260,13 @@ function private _play()
 
         if (b_flyby)
         {
-            heli LinkTo(align);
-            _flyby(align, cam_ent, spawn_node.origin, arrival.origin);
+            end_pt = a_pts[a_pts.size - 1];
+            final_yaw = VectorToAngles(end_pt - a_pts[a_pts.size - 2])[1];
+            fwd = AnglesToForward((0, final_yaw, 0));
 
-            travel = VectorToAngles(arrival.origin - spawn_node.origin);
-            fwd = AnglesToForward(travel);
+            _flyby(cam_ent, heli, a_pts);
 
-            // Zoom the chase cam in toward the main rotor (the rotor-FX tag), sampled while the heli
-            // is still linked at the arrival, for a focused push-in.
+            // Zoom the chase cam in toward the main rotor (the rotor-FX tag) for a focused push-in.
             rotor_pos = heli GetTagOrigin("main_rotor_jnt");
             zoom_pos = rotor_pos - fwd * FLYBY_ZOOM_OFFSET;
             foreach (player in level.heli_test_players)
@@ -222,12 +277,12 @@ function private _play()
             cam_ent RotateTo(VectorToAngles(rotor_pos - zoom_pos), FADE_OUT_TIME);
             wait(FADE_OUT_TIME);
 
-            // Fully black: release the chase link, free the heli, re-anchor at raw travel (the crash
-            // anim faces the anchor directly). The server frame lets it settle before the scene
-            // starts; the 90-deg model/anim flip happens here, hidden by the black.
+            // Fully black: release the chase link and anchor align at the arrival facing (the crash
+            // anim faces the anchor directly, matching the heli's arrival nose). The server frame
+            // lets it settle before the scene starts; the 90-deg model/anim flip is hidden by black.
             _release_ride_camera();
-            heli Unlink();
-            align.angles = (0, travel[1], 0);
+            align.origin = end_pt;
+            align.angles = (0, final_yaw, 0);
             WAIT_SERVER_FRAME;
         }
 

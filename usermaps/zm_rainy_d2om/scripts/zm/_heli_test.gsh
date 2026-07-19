@@ -4,13 +4,16 @@
 #define HELI_FX_IMPACT      3   // first impact (heli_impact @550): trail off + explosion
 #define HELI_FX_EXPLODE     4   // second explosion (heli_explo @608): rotor blur off + explosion
 
-// Flyby (heli arrival) — straight MoveTo from the spawn to the crash point (the crash scene
-// then takes over). No baked fly-in anim exists (BO1 did it with a vehicle path), so the lean
-// and straighten are scripted with RotateTo.
-#define FLYBY_SPEED_UPS     500    // fly-in speed (units/sec); duration derived from distance
+// Flyby (heli arrival) — Catmull-Rom curve through the heli_intro_spawn target chain, sampled into
+// short linear MoveTo pieces (smooth), with the model banking into its turns. No baked fly-in anim
+// exists (BO1 did it with a vehicle path).
+#define FLYBY_SPEED_UPS     500    // fly-in speed (units/sec); piece durations derived from length
+#define FLYBY_SEG_LEN       120    // spline sample step (units per MoveTo piece); smaller = smoother
 #define FLYBY_PITCH_FWD     7.0    // nose-down forward lean while cruising, leveled out at the end
-#define FLYBY_LEVEL_TIME    1.5    // seconds to ease into the lean at the start / out of it at the end
-#define HELI_YAW_OFFSET     90     // huey model nose is 90 deg off +X; rotate heading to match (try -90 if reversed)
+#define FLYBY_BANK_PER_DEG  1.5    // model roll (deg) per deg of per-piece yaw change (flip sign if reversed)
+#define FLYBY_BANK_MAX      35     // max model roll (deg)
+#define FLYBY_LEVEL_FRAC    0.85   // path fraction after which pitch/roll ease back to level
+#define HELI_YAW_OFFSET     0      // free-heli nose = its own angles.yaw; add 180 if it flies backward, +/-90 if sideways
 // Chase camera: players PlayerLinkToDelta'd to a cam ent MoveTo'd in parallel with the heli, sat
 // behind + above it and angled at it, with clamped free-look. (A link, not CameraSetPosition, so the
 // player can look around; a MoveTo'd ent, not a heli-tag link, so it stays smooth.)

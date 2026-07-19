@@ -5,7 +5,7 @@ iwmap 4
 "The Map" flags expanded 
 // entity 0
 {
-guid "{B17A1592-82FE-11F1-B50A-B153BFED9928}"
+guid "{15FF362E-8383-11F1-B50B-B5785ECCC203}"
 "classname" "worldspawn"
 "lightingquality" "1024"
 "samplescale" "1"
@@ -522,7 +522,7 @@ guid "{7F4D6898-BB76-44FD-898A-74E7570E20AE}"
  guid "{88BA23B6-C4ED-4AC0-AE1C-CEC7ECD9DA85}"
  ( 1536 512 0 ) ( 1536 -1536 0 ) ( 1536 -1536 320 ) volume 64 64 1800 -136 0 0 lightmap_gray 16384 16384 -2044.5 -291.5 0 0
  ( 768 1408 0 ) ( -1472 1408 0 ) ( -1472 -640 0 ) volume 64 64 -248 -1800 0 0 lightmap_gray 16384 16384 -248 -1800 0 0
- ( 1024 -640 1856 ) ( -1216 -640 1856 ) ( -1216 1408 1856 ) volume 64 64 -248 -1800 0 0 lightmap_gray 16384 16384 -248 -1800 0 0
+ ( 1032 -640 1984 ) ( -1208 -640 1984 ) ( -1208 1408 1984 ) volume 64 64 -248 -1800 0 0 lightmap_gray 16384 16384 -248 -1800 0 0
  ( 1536 -1536 320 ) ( 1536 -1536 0 ) ( -704 -1536 0 ) volume 64 64 -248 -136 0 0 lightmap_gray 16384 16384 -248 -136 0 0
  ( -1536 1536 320 ) ( -1536 -512 320 ) ( -1536 -512 0 ) volume 64 64 1800 -136 0 0 lightmap_gray 16384 16384 1800 -136 0 0
  ( -1536 1536 320 ) ( -1536 1536 0 ) ( 704 1536 0 ) volume 64 64 -248 -136 0 0 lightmap_gray 16384 16384 -248 -136 0 0
@@ -980,15 +980,6 @@ guid "{D339EC6B-83E3-4A06-92C9-08858FF94617}"
 }
 // entity 40
 {
-guid "{AA9C37CC-7F0A-11F1-B506-E0AB3214356A}"
-"classname" "script_origin"
-"client_server" "ServerSide"
-"origin" "0 0 1800"
-"targetname" "auto3"
-"_color" "0.4 0 0.8"
-}
-// entity 41
-{
 guid "{67D3D8D6-8160-11F1-B506-E0AB3214356A}"
 "classname" "fx"
 "fxdef" "killstreaks/fx_heli_exp_lg"
@@ -1000,14 +991,79 @@ guid "{67D3D8D6-8160-11F1-B506-E0AB3214356A}"
 "primaryLightFraction" "1"
 "timescale" "1"
 }
-// entity 42
+// entity 41
 {
 guid "{AAFC7A00-82FE-11F1-B50A-B153BFED9928}"
 "classname" "script_origin"
-"angles" "0 90 0"
+"angles" "0 74.9999 0"
 "client_server" "ServerSide"
-"origin" "-928 -1192 1800"
+"origin" "-1436 -1444 1800"
 "target" "auto3"
 "targetname" "heli_intro_spawn"
+"_color" "0.4 0 0.8"
+}
+// entity 42
+{
+guid "{9F0A1490-8379-11F1-B50B-B5785ECCC203}"
+"classname" "script_origin"
+"angles" "0 44.9999 0"
+"client_server" "ServerSide"
+"origin" "-1312 -564 1800"
+"target" "auto4"
+"targetname" "auto3"
+"_color" "0.4 0 0.8"
+}
+// entity 43
+{
+guid "{1001D242-8383-11F1-B50B-B5785ECCC203}"
+"classname" "script_origin"
+"angles" "0 44.9999 0"
+"client_server" "ServerSide"
+"origin" "-912 128 1800"
+"target" "auto5"
+"targetname" "auto4"
+"_color" "0.4 0 0.8"
+}
+// entity 44
+{
+guid "{15FF3614-8383-11F1-B50B-B5785ECCC203}"
+"classname" "script_origin"
+"angles" "0 44.9999 0"
+"client_server" "ServerSide"
+"origin" "-1292 824 1800"
+"target" "auto6"
+"targetname" "auto5"
+"_color" "0.4 0 0.8"
+}
+// entity 45
+{
+guid "{15FF361F-8383-11F1-B50B-B5785ECCC203}"
+"classname" "script_origin"
+"angles" "0 44.9999 0"
+"client_server" "ServerSide"
+"origin" "-500 960 1800"
+"target" "auto7"
+"targetname" "auto6"
+"_color" "0.4 0 0.8"
+}
+// entity 46
+{
+guid "{15FF362A-8383-11F1-B50B-B5785ECCC203}"
+"classname" "script_origin"
+"angles" "0 44.9999 0"
+"client_server" "ServerSide"
+"origin" "236 420 1800"
+"target" "auto8"
+"targetname" "auto7"
+"_color" "0.4 0 0.8"
+}
+// entity 47
+{
+guid "{15FF3635-8383-11F1-B50B-B5785ECCC203}"
+"classname" "script_origin"
+"angles" "0 44.9999 0"
+"client_server" "ServerSide"
+"origin" "252 -472 1800"
+"targetname" "auto8"
 "_color" "0.4 0 0.8"
 }
