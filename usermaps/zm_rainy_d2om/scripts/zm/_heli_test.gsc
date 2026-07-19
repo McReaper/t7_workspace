@@ -23,6 +23,7 @@
 #precache("script_bundle", "cin_rappel_npc1");
 #precache("script_bundle", "cin_rappel_npc2");
 #precache("script_bundle", "cin_pilot");
+#precache("script_bundle", "cin_pilot_player");   // precaches player_huey_pilot1_idle_loop1
 #precache("xcam", "rappel_cam");
 
 #namespace heli_test;
@@ -40,6 +41,7 @@ function __init__()
     level scene::init("cin_rappel_npc1");
     level scene::init("cin_rappel_npc2");
     level scene::init("cin_pilot");
+    level scene::init("cin_pilot_player");
     level thread _watch();
 }
 
@@ -135,8 +137,8 @@ function private _flyby(heli, a_pts)
     start_yaw = VectorToAngles(a_pts[1] - a_pts[0])[1];
     heli.origin = a_pts[0];
     heli.angles = (FLYBY_PITCH_FWD, start_yaw + HELI_YAW_OFFSET, 0);
-    _ride_camera(heli);
     _spawn_riders(heli);
+    _ride_camera(heli);
 
     approx_len = 0;
     for (i = 1; i < n; i++)
@@ -218,13 +220,13 @@ function private _spawn_riders(heli)
     pilot SetModel(HELI_PILOT_MODEL);
     pilot NotSolid();
     pilot UseAnimTree(#animtree);
-    pilot thread animation::play(HELI_RIDE_IDLE, heli, "tag_driver");
+    pilot thread animation::play(HELI_PILOT_IDLE, heli, "tag_driver");
 
     body = Spawn("script_model", heli GetTagOrigin(HELI_RIDE_TAG));
     body SetModel(HELI_RIDER_MODEL);
     body NotSolid();
     body UseAnimTree(#animtree);
-    body thread animation::play(HELI_RIDE_IDLE, heli, HELI_RIDE_TAG);
+    body thread animation::play(HELI_PLAYER_IDLE, heli, HELI_RIDE_TAG);
 
     level.heli_test_riders = array(pilot, body);
 }
@@ -341,20 +343,10 @@ function private _play()
         npc2 NotSolid();
         align thread scene::play("cin_rappel_npc2", npc2);
 
-        // Copilot idle at the driver-seat tag (no link).
-        pilot_align = Spawn("script_model", heli GetTagOrigin("tag_driver"));
-        pilot_align.angles = heli GetTagAngles("tag_driver");
-        pilot_align NotSolid();
-
-        npc3 = Spawn("script_model", align.origin);
-        npc3 SetModel("c_zom_der_dempsey_mpc_fb");
-        npc3 NotSolid();
-        pilot_align thread scene::play("cin_pilot", npc3);
-        heli thread _pilot_out(npc3);
         heli thread _snd_out();
         heli thread _crash_fx();
 
-        level.heli_test_ents = array(align, heli, interior, cam_body, rope, rope2, npc1, npc2, npc3, pilot_align);
+        level.heli_test_ents = array(align, heli, interior, cam_body, rope, rope2, npc1, npc2);
 
         // Rappel scene drives its own rappel_cam. cin_heli_crash drives the heli; both anchor on align.
         cam_body Show();
@@ -370,6 +362,19 @@ function private _play()
             _cleanup_riders();
         }
 
+        // Copilot: seat it AFTER the crash anim has posed the heli (and the ride pilot is gone), so it
+        // anchors on the crash-pose driver tag, not the stale flight-end pose (which made it clip).
+        pilot_align = Spawn("script_model", heli GetTagOrigin("tag_driver"));
+        pilot_align.angles = heli GetTagAngles("tag_driver");
+        pilot_align NotSolid();
+        npc3 = Spawn("script_model", pilot_align.origin);
+        npc3 SetModel("c_zom_der_dempsey_mpc_fb");
+        npc3 NotSolid();
+        pilot_align thread scene::play("cin_pilot", npc3);
+        heli thread _pilot_out(npc3);
+        level.heli_test_ents[level.heli_test_ents.size] = npc3;
+        level.heli_test_ents[level.heli_test_ents.size] = pilot_align;
+
         // Teardown on the heli anim's last-frame self-notify (heli_end @1095).
         heli waittill("heli_end");
 
@@ -380,11 +385,19 @@ function private _play()
     level.heli_test_playing = undefined;
 }
 
-// First-person ride: link each player to the heli's ride tag with clamped free-look, so they ride
-// inside the heli and follow its motion+rotation. Granular locks replace FreezeControls (doesn't
-// survive a link).
+// First-person ride: link each player's view to the heli's ride tag with clamped free-look, so they
+// ride inside the heli and follow its motion+rotation. Granular locks replace FreezeControls
+// (doesn't survive a link).
 function private _ride_camera(heli)
 {
+    // A view mount linked to the ride tag with a local offset — PlayerLinkToDelta takes no position
+    // offset, so the players link to this instead (tune HELI_VIEW_OFFSET).
+    mount = Spawn("script_model", heli GetTagOrigin(HELI_RIDE_TAG));
+    mount SetModel("tag_origin");
+    mount NotSolid();
+    mount LinkTo(heli, HELI_RIDE_TAG, HELI_VIEW_OFFSET, (0, 0, 0));
+    level.heli_test_view_mount = mount;
+
     level.heli_test_players = GetPlayers();
     foreach (player in level.heli_test_players)
     {
@@ -399,7 +412,7 @@ function private _ride_camera(heli)
         player AllowProne(false);
         player setClientUIVisibilityFlag("hud_visible", 0);
         player Ghost();
-        player PlayerLinkToDelta(heli, HELI_RIDE_TAG, 1, FLYBY_LOOK_RIGHT, FLYBY_LOOK_LEFT, FLYBY_LOOK_UP, FLYBY_LOOK_DOWN);
+        player PlayerLinkToDelta(mount, "tag_origin", 1, FLYBY_LOOK_RIGHT, FLYBY_LOOK_LEFT, FLYBY_LOOK_UP, FLYBY_LOOK_DOWN);
     }
 }
 
@@ -419,6 +432,12 @@ function private _release_ride_camera()
             _ground_player(player);
             player FreezeControls(true);
         }
+    }
+
+    if (isdefined(level.heli_test_view_mount))
+    {
+        level.heli_test_view_mount Delete();
+        level.heli_test_view_mount = undefined;
     }
 }
 
@@ -460,6 +479,11 @@ function private _restore_players()
 function private _cleanup_prev()
 {
     _cleanup_riders();   // safety: released at the handoff, but not on an aborted run
+    if (isdefined(level.heli_test_view_mount))
+    {
+        level.heli_test_view_mount Delete();
+        level.heli_test_view_mount = undefined;
+    }
     if (!isdefined(level.heli_test_ents))
     {
         return;

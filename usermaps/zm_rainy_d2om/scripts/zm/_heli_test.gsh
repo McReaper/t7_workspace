@@ -20,18 +20,21 @@
 #define FLYBY_FLARE_EASE    0.4    // ease-in/out fraction on the flare rotations (0..0.5); higher = softer
 #define HELI_YAW_OFFSET     0      // free-heli nose = its own angles.yaw; add 180 if it flies backward, +/-90 if sideways
 
-// First-person ride: players PlayerLinkToDelta'd directly to a heli tag, with clamped free-look.
-#define HELI_RIDE_TAG       "tag_passenger"   // heli tag the player rides on (first person)
-#define FLYBY_LOOK_RIGHT    45     // free-look clamp (deg) from the ride facing; narrow = locked
-#define FLYBY_LOOK_LEFT     45
+// First-person ride: the player's view links to the heli's ride tag (clamped free-look). The player
+// body (player_huey_pilot1_idle_loop1, head hidden) rides the same tag so the player sees it.
+#define HELI_RIDE_TAG       "tag_passenger"   // heli tag the player view + rider bodies sit on
+#define HELI_VIEW_OFFSET    (8, -3, -5)   // view offset from the ride tag, local (fwd, left, up): 10 fwd, 3 right, 5 down
+#define FLYBY_LOOK_RIGHT    65     // free-look clamp (deg) from the ride facing; narrow = locked
+#define FLYBY_LOOK_LEFT     65
 #define FLYBY_LOOK_UP       45
-#define FLYBY_LOOK_DOWN     45
+#define FLYBY_LOOK_DOWN     50
 
 // Rider bodies visible during the ride (pilot + the player's own body), linked to heli tags and
-// playing the driver idle so they ride along animated. animation::play links to the tag + animates.
+// playing an idle so they ride along animated. animation::play links to the tag + animates.
 #define HELI_PILOT_MODEL    "c_zom_der_dempsey_mpc_fb"    // pilot on tag_driver
 #define HELI_RIDER_MODEL    "c_zom_der_nikolai_mpc_fb"    // the player's own body on the ride tag
-#define HELI_RIDE_IDLE      "ai_huey_pilot1_idle_loop1"   // driver idle (same anim cin_pilot uses)
+#define HELI_PILOT_IDLE     "ai_huey_pilot1_idle_loop1"       // pilot idle (same anim cin_pilot uses)
+#define HELI_PLAYER_IDLE    "player_huey_pilot1_idle_loop1"   // player-body idle (head hidden)
 
 // Frames the flight visuals (heli + FX + riders) persist while the scene spins up, so there's no
 // gap; the two overlap statically at the same pose for these frames.
