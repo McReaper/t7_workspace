@@ -123,21 +123,34 @@ function private _spline_pos(a_pts, t)
     return (p1 * 2 + (p2 - p0) * u + (p0 * 2 - p1 * 5 + p2 * 4 - p3) * u2 + (p1 * 3 - p2 * 3 + p3 - p0) * u3) * 0.5;
 }
 
+// Places the chase cam behind + above the heli, rotated to its heading (yaw) and angled down at it,
+// so it follows the heli's turns. t <= 0 sets instantly; t > 0 eases over t for the per-piece follow.
+function private _chase_cam(cam_ent, heli_pos, yaw, t)
+{
+    fwd = AnglesToForward((0, yaw, 0));
+    cam_pos = heli_pos + (0, 0, FLYBY_CHASE_HEIGHT) - fwd * FLYBY_CHASE_DIST;
+    cam_ang = VectorToAngles(fwd * FLYBY_CHASE_DIST - (0, 0, FLYBY_CHASE_HEIGHT));
+    if (t <= 0)
+    {
+        cam_ent.origin = cam_pos;
+        cam_ent.angles = cam_ang;
+        return;
+    }
+    cam_ent MoveTo(cam_pos, t);
+    cam_ent RotateTo(cam_ang, t);
+}
+
 // Flies the heli along the Catmull-Rom curve through a_pts as short linear MoveTo pieces (smooth),
-// banking into turns. The cam ent rides a constant offset at fixed angles, so the view stays steady.
+// banking into turns. The chase cam follows the heli's heading (yaw only, no bank roll).
 function private _flyby(cam_ent, heli, a_pts)
 {
     level endon("end_game");
 
     n = a_pts.size;
-    fwd = AnglesToForward(VectorToAngles(a_pts[n - 1] - a_pts[0]));
-    cam_offset = (0, 0, FLYBY_CHASE_HEIGHT) - fwd * FLYBY_CHASE_DIST;
-
     start_yaw = VectorToAngles(a_pts[1] - a_pts[0])[1];
     heli.origin = a_pts[0];
     heli.angles = (FLYBY_PITCH_FWD, start_yaw + HELI_YAW_OFFSET, 0);
-    cam_ent.origin = a_pts[0] + cam_offset;
-    cam_ent.angles = VectorToAngles(fwd * FLYBY_CHASE_DIST - (0, 0, FLYBY_CHASE_HEIGHT));
+    _chase_cam(cam_ent, a_pts[0], start_yaw, 0);
     _ride_camera(cam_ent);
 
     approx_len = 0;
@@ -177,7 +190,7 @@ function private _flyby(cam_ent, heli, a_pts)
 
         heli MoveTo(pos, t_seg);
         heli RotateTo((FLYBY_PITCH_FWD, yaw + HELI_YAW_OFFSET, roll), t_seg);
-        cam_ent MoveTo(pos + cam_offset, t_seg);
+        _chase_cam(cam_ent, pos, yaw, t_seg);
         wait(t_seg);
 
         prev_pos = pos;
