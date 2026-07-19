@@ -123,10 +123,8 @@ function private _spline_pos(a_pts, t)
     return (p1 * 2 + (p2 - p0) * u + (p0 * 2 - p1 * 5 + p2 * 4 - p3) * u2 + (p1 * 3 - p2 * 3 + p3 - p0) * u3) * 0.5;
 }
 
-// Flies the heli along the Catmull-Rom curve through a_pts, sampled into short linear MoveTo pieces
-// (client-interpolated = smooth), banking the model into its turns and leveling out at the end. The
-// camera ent rides a constant behind+above offset with fixed angles, so the view stays steady while
-// the heli banks within the frame. Nose alignment is tuned via HELI_YAW_OFFSET.
+// Flies the heli along the Catmull-Rom curve through a_pts as short linear MoveTo pieces (smooth),
+// banking into turns. The cam ent rides a constant offset at fixed angles, so the view stays steady.
 function private _flyby(cam_ent, heli, a_pts)
 {
     level endon("end_game");
@@ -153,19 +151,14 @@ function private _flyby(cam_ent, heli, a_pts)
         num_pieces = 2;
     }
 
+    // Cruise at constant speed, nose-down, banking; stops short so the brake/flare owns the tail.
+    brake_piece = Int(num_pieces * FLYBY_LEVEL_FRAC);
     prev_pos = a_pts[0];
     prev_yaw = start_yaw;
-    for (i = 1; i <= num_pieces; i++)
+    for (i = 1; i <= brake_piece; i++)
     {
-        frac = i / num_pieces;
-        pos = _spline_pos(a_pts, (n - 1) * frac);
+        pos = _spline_pos(a_pts, (n - 1) * (i / num_pieces));
         dir = pos - prev_pos;
-
-        t_seg = Length(dir) / FLYBY_SPEED_UPS;
-        if (t_seg < 0.05)
-        {
-            t_seg = 0.05;
-        }
 
         yaw = prev_yaw;
         if (LengthSquared(dir) > 0.01)
@@ -174,22 +167,50 @@ function private _flyby(cam_ent, heli, a_pts)
         }
         roll = math::clamp(-1 * FLYBY_BANK_PER_DEG * AngleClamp180(yaw - prev_yaw), -1 * FLYBY_BANK_MAX, FLYBY_BANK_MAX);
 
-        level_blend = 0;
-        if (frac > FLYBY_LEVEL_FRAC)
+        // Snap to whole server frames so MoveTo and wait line up (else the heli pauses each joint).
+        frames = Int(Length(dir) / FLYBY_SPEED_UPS / SERVER_FRAME + 0.5);
+        if (frames < 1)
         {
-            level_blend = (frac - FLYBY_LEVEL_FRAC) / (1 - FLYBY_LEVEL_FRAC);
+            frames = 1;
         }
-        pitch = FLYBY_PITCH_FWD * (1 - level_blend);
-        roll = roll * (1 - level_blend);
+        t_seg = frames * SERVER_FRAME;
 
         heli MoveTo(pos, t_seg);
-        heli RotateTo((pitch, yaw + HELI_YAW_OFFSET, roll), t_seg);
+        heli RotateTo((FLYBY_PITCH_FWD, yaw + HELI_YAW_OFFSET, roll), t_seg);
         cam_ent MoveTo(pos + cam_offset, t_seg);
         wait(t_seg);
 
         prev_pos = pos;
         prev_yaw = yaw;
     }
+
+    // Brake to a stop, entering at cruise speed (brake_time = 2*dist/speed, decel over the whole move)
+    // so there's no velocity jump. Flare runs threaded, so this returns as the brake begins and the
+    // caller's zoom+fade overlaps it.
+    end_pos = a_pts[n - 1];
+    final_yaw = prev_yaw;
+    if (LengthSquared(end_pos - prev_pos) > 0.01)
+    {
+        final_yaw = VectorToAngles(end_pos - prev_pos)[1];
+    }
+
+    brake_time = 2 * Distance(prev_pos, end_pos) / FLYBY_SPEED_UPS;
+    heli MoveTo(end_pos, brake_time, 0, brake_time);
+    heli thread _flare(final_yaw + HELI_YAW_OFFSET, brake_time);
+}
+
+// Nose flares up then settles level over the brake time (eased), on the heli independently so the
+// arrival transition can overlap the brake.
+function private _flare(yaw, brake_time)
+{
+    self endon("death");
+    level endon("end_game");
+
+    up_time = brake_time * FLYBY_FLARE_PEAK;
+    down_time = brake_time - up_time;
+    self RotateTo((-1 * FLYBY_PITCH_BRAKE, yaw, 0), up_time, up_time * FLYBY_FLARE_EASE, up_time * FLYBY_FLARE_EASE);
+    wait(up_time);
+    self RotateTo((0, yaw, 0), down_time, down_time * FLYBY_FLARE_EASE, down_time * FLYBY_FLARE_EASE);
 }
 
 function private _watch()
@@ -264,22 +285,22 @@ function private _play()
             final_yaw = VectorToAngles(end_pt - a_pts[a_pts.size - 2])[1];
             fwd = AnglesToForward((0, final_yaw, 0));
 
+            // _flyby returns as the brake begins; the zoom+fade overlaps it. Aim at the arrival rotor
+            // (heli still braking toward it): its local tag offset added to the arrival origin.
             _flyby(cam_ent, heli, a_pts);
 
-            // Zoom the chase cam in toward the main rotor (the rotor-FX tag) for a focused push-in.
-            rotor_pos = heli GetTagOrigin("main_rotor_jnt");
-            zoom_pos = rotor_pos - fwd * FLYBY_ZOOM_OFFSET;
+            arrival_rotor = end_pt + (heli GetTagOrigin("main_rotor_jnt") - heli.origin);
+            zoom_pos = arrival_rotor - fwd * FLYBY_ZOOM_OFFSET;
             foreach (player in level.heli_test_players)
             {
                 player thread lui::screen_fade_out(FADE_OUT_TIME);
             }
             cam_ent MoveTo(zoom_pos, FADE_OUT_TIME);
-            cam_ent RotateTo(VectorToAngles(rotor_pos - zoom_pos), FADE_OUT_TIME);
+            cam_ent RotateTo(VectorToAngles(arrival_rotor - zoom_pos), FADE_OUT_TIME);
             wait(FADE_OUT_TIME);
 
-            // Fully black: release the chase link and anchor align at the arrival facing (the crash
-            // anim faces the anchor directly, matching the heli's arrival nose). The server frame
-            // lets it settle before the scene starts; the 90-deg model/anim flip is hidden by black.
+            // Fully black: release the link and anchor align at the arrival facing (the crash anim
+            // faces the anchor directly). The server frame settles it; the 90-deg flip is under black.
             _release_ride_camera();
             align.origin = end_pt;
             align.angles = (0, final_yaw, 0);
@@ -355,8 +376,8 @@ function private _ride_camera(cam_ent)
     level.heli_test_players = GetPlayers();
     foreach (player in level.heli_test_players)
     {
-        // Save the map origin: PlayerLinkToDelta teleports the body up, so we drop it back at the
-        // handoff — otherwise it falls to its death.
+        // Save the map origin — PlayerLinkToDelta teleports the body up, so we drop it back grounded
+        // at the handoff (else it falls to its death).
         player.heli_test_org = player.origin;
         player.heli_test_ang = player.angles;
 
@@ -365,6 +386,7 @@ function private _ride_camera(cam_ent)
         player AllowCrouch(false);
         player AllowProne(false);
         player setClientUIVisibilityFlag("hud_visible", 0);
+        player Ghost();
         player PlayerLinkToDelta(cam_ent, undefined, 1, FLYBY_LOOK_RIGHT, FLYBY_LOOK_LEFT, FLYBY_LOOK_UP, FLYBY_LOOK_DOWN);
     }
 }
@@ -411,6 +433,7 @@ function private _restore_players()
             _ground_player(player);
             player.heli_test_org = undefined;
             player.heli_test_ang = undefined;
+            player Show();
             player FreezeControls(false);
             player EnableWeapons();
             player EnableOffhandWeapons();

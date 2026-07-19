@@ -9,10 +9,15 @@
 // exists (BO1 did it with a vehicle path).
 #define FLYBY_SPEED_UPS     500    // fly-in speed (units/sec); piece durations derived from length
 #define FLYBY_SEG_LEN       120    // spline sample step (units per MoveTo piece); smaller = smoother
-#define FLYBY_PITCH_FWD     7.0    // nose-down forward lean while cruising, leveled out at the end
+#define FLYBY_PITCH_FWD     15.0   // nose-down forward lean while cruising
 #define FLYBY_BANK_PER_DEG  1.5    // model roll (deg) per deg of per-piece yaw change (flip sign if reversed)
 #define FLYBY_BANK_MAX      35     // max model roll (deg)
-#define FLYBY_LEVEL_FRAC    0.85   // path fraction after which pitch/roll ease back to level
+// Arrival brake/flare: over the last (1 - FLYBY_LEVEL_FRAC) of the path the heli decelerates, the
+// nose flares up (brake), then settles level for the handoff.
+#define FLYBY_LEVEL_FRAC    0.80   // path fraction after which the braking/flare tail begins
+#define FLYBY_PITCH_BRAKE   12.0   // nose-up flare angle at the peak of the brake
+#define FLYBY_FLARE_PEAK    0.5    // split of the brake time between nose-up and settle (0..1)
+#define FLYBY_FLARE_EASE    0.4    // ease-in/out fraction on the flare rotations (0..0.5); higher = softer
 #define HELI_YAW_OFFSET     0      // free-heli nose = its own angles.yaw; add 180 if it flies backward, +/-90 if sideways
 // Chase camera: players PlayerLinkToDelta'd to a cam ent MoveTo'd in parallel with the heli, sat
 // behind + above it and angled at it, with clamped free-look. (A link, not CameraSetPosition, so the

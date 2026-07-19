@@ -5,7 +5,7 @@ iwmap 4
 "The Map" flags expanded 
 // entity 0
 {
-guid "{15FF362E-8383-11F1-B50B-B5785ECCC203}"
+guid "{9BCC1765-8387-11F1-B50B-B5785ECCC203}"
 "classname" "worldspawn"
 "lightingquality" "1024"
 "samplescale" "1"
@@ -995,75 +995,55 @@ guid "{67D3D8D6-8160-11F1-B506-E0AB3214356A}"
 {
 guid "{AAFC7A00-82FE-11F1-B50A-B153BFED9928}"
 "classname" "script_origin"
-"angles" "0 74.9999 0"
+"angles" "0 314.999 0"
 "client_server" "ServerSide"
-"origin" "-1436 -1444 1800"
+"origin" "-1232 1076 1800"
 "target" "auto3"
 "targetname" "heli_intro_spawn"
 "_color" "0.4 0 0.8"
 }
 // entity 42
 {
-guid "{9F0A1490-8379-11F1-B50B-B5785ECCC203}"
+guid "{15FF361F-8383-11F1-B50B-B5785ECCC203}"
 "classname" "script_origin"
 "angles" "0 44.9999 0"
 "client_server" "ServerSide"
-"origin" "-1312 -564 1800"
-"target" "auto4"
+"origin" "88 568 1800"
+"target" "auto7"
 "targetname" "auto3"
 "_color" "0.4 0 0.8"
 }
 // entity 43
 {
-guid "{1001D242-8383-11F1-B50B-B5785ECCC203}"
-"classname" "script_origin"
-"angles" "0 44.9999 0"
-"client_server" "ServerSide"
-"origin" "-912 128 1800"
-"target" "auto5"
-"targetname" "auto4"
-"_color" "0.4 0 0.8"
-}
-// entity 44
-{
-guid "{15FF3614-8383-11F1-B50B-B5785ECCC203}"
-"classname" "script_origin"
-"angles" "0 44.9999 0"
-"client_server" "ServerSide"
-"origin" "-1292 824 1800"
-"target" "auto6"
-"targetname" "auto5"
-"_color" "0.4 0 0.8"
-}
-// entity 45
-{
-guid "{15FF361F-8383-11F1-B50B-B5785ECCC203}"
-"classname" "script_origin"
-"angles" "0 44.9999 0"
-"client_server" "ServerSide"
-"origin" "-500 960 1800"
-"target" "auto7"
-"targetname" "auto6"
-"_color" "0.4 0 0.8"
-}
-// entity 46
-{
 guid "{15FF362A-8383-11F1-B50B-B5785ECCC203}"
 "classname" "script_origin"
 "angles" "0 44.9999 0"
 "client_server" "ServerSide"
-"origin" "236 420 1800"
+"origin" "776 -380 1800"
 "target" "auto8"
 "targetname" "auto7"
 "_color" "0.4 0 0.8"
 }
-// entity 47
+// entity 44
 {
 guid "{15FF3635-8383-11F1-B50B-B5785ECCC203}"
 "classname" "script_origin"
 "angles" "0 44.9999 0"
 "client_server" "ServerSide"
-"origin" "252 -472 1800"
+"origin" "1296 -876 1800"
 "targetname" "auto8"
 "_color" "0.4 0 0.8"
+}
+// entity 45
+{
+guid "{9BCC176C-8387-11F1-B50B-B5785ECCC203}"
+"classname" "misc_model"
+"model" "p7_mp_vld_vista_radio_tower_01"
+"modelscale" "0.100000001490116"
+"origin" "669 -544 473"
+"lightingstate1" "1"
+"lightingstate2" "1"
+"lightingstate3" "1"
+"lightingstate4" "1"
+"static" "1"
 }
