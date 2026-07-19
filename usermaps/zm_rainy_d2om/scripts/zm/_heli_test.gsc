@@ -40,7 +40,6 @@ function __init__()
     level thread _watch();
 }
 
-// Removes the cockpit pilot on the heli anim's "crash_begin" self-notify (frame 279).
 function private _pilot_out(pilot)
 {
     self endon("death");
@@ -52,8 +51,6 @@ function private _pilot_out(pilot)
     }
 }
 
-// Cuts the looping rotor bed on the anim's "heli_impact" self-notify (frame 550), so it
-// stops at the crash instead of running to the scene's last frame.
 function private _snd_out()
 {
     self endon("death");
@@ -62,9 +59,8 @@ function private _snd_out()
     self clientfield::set("heli_snd", 0);
 }
 
-// Drives the crash FX through the heli_fx clientfield (all FX play CSC — a server FX can't be
-// stopped without deleting its host entity, which would kill the heli mid-anim). Fire trail on
-// crash_begin (279), first explosion on heli_impact (550), second on heli_explo (608).
+// Crash FX driven CSC via clientfield: a server looping FX can't stop without deleting its host,
+// which would kill the heli mid-anim. Frames: crash_begin 279, heli_impact 550, heli_explo 608.
 function private _crash_fx()
 {
     self endon("death");
@@ -90,8 +86,8 @@ function private _get_node(str_targetname)
     return node;
 }
 
-// The arrival node the heli flies to (and crashes at): the end of heli_intro_spawn's target
-// chain. The flight is a straight line, so only the spawn and the arrival matter.
+// End of heli_intro_spawn's target chain: where the heli flies to and crashes (straight line, so
+// only the spawn and the arrival matter).
 function private _arrival_node(spawn)
 {
     node = spawn;
@@ -107,12 +103,8 @@ function private _arrival_node(spawn)
     return node;
 }
 
-// Flies align (and the parallel chase-camera ent) straight from spawn to crash point with one
-// MoveTo each (engine-interpolated, so both stay smooth). Eases into a nose-down forward lean, then
-// levels out for the crash-scene handoff. The huey model's nose sits 90 deg off +X, so align carries
-// travel + HELI_YAW_OFFSET (the linked heli renders its nose along travel). The flight is a straight,
-// constant-heading line, so the chase offset (behind + above) and the cam's look-at-heli angles are
-// both constant — cam_ent rides that offset and stays framed on the heli.
+// Straight MoveTo from spawn to crash point (engine-interpolated = smooth), easing into a nose-down
+// lean then leveling. Huey nose is 90 deg off +X, so align carries travel + HELI_YAW_OFFSET.
 function private _flyby(align, cam_ent, start_pt, end_pt)
 {
     level endon("end_game");
@@ -134,8 +126,6 @@ function private _flyby(align, cam_ent, start_pt, end_pt)
     align.angles = (travel[0], yaw, 0);
     cam_ent.origin = start_pt + cam_offset;
     cam_ent.angles = cam_view;
-
-    // Link the players' view to the chase ent now that it's positioned behind the heli.
     _ride_camera(cam_ent);
 
     align RotateTo((travel[0] + FLYBY_PITCH_FWD, yaw, 0), FLYBY_LEVEL_TIME);
@@ -196,27 +186,22 @@ function private _play()
         interior NotSolid();
         interior LinkTo(heli, "body_animate_jnt", (0, 0, 0), (0, 0, 0));
 
-        // First-person view body, animated by the cin_rappel_fp scene. Hidden during the 3rd-person
-        // fly-in (it would show as a stray body in the chase cam); revealed under black at the rappel.
+        // FP rappel body (animated by cin_rappel_fp). Hidden during the 3rd-person fly-in.
         cam_body = Spawn("script_model", spawn_node.origin);
         cam_body SetModel("c_zom_der_dempsey_viewbody");
         cam_body NotSolid();
         cam_body Hide();
 
-        // Chase-camera ent: _flyby positions it behind the heli, links the players' view to it, and
-        // MoveTo's it in parallel for the third-person fly-in.
         cam_ent = Spawn("script_model", spawn_node.origin);
         cam_ent SetModel("tag_origin");
         cam_ent NotSolid();
 
         level.heli_test_ents = array(align, heli, interior, cam_body, cam_ent);
 
-        // Rotor blur (CSC crash-FX state machine) + rotor bed run for the whole intro.
+        // Rotor blur + rotor-bed loop for the whole intro (both CSC).
         heli clientfield::set("heli_fx", HELI_FX_FLYING);
         heli clientfield::set("heli_snd", 1);
 
-        // Third-person fly-in: the heli rides align (linked), chase cam behind it. Then fade to black
-        // while the cam pushes in, and only once fully black hand off to the first-person scene.
         if (b_flyby)
         {
             heli LinkTo(align);
@@ -225,13 +210,10 @@ function private _play()
             travel = VectorToAngles(arrival.origin - spawn_node.origin);
             fwd = AnglesToForward(travel);
 
-            // Push the chase cam in toward the main rotor (the tag the rotor FX plays on) and aim at
-            // it — a focal point makes the zoom read as a smooth deliberate push-in. Sample the tag
-            // while the heli is still linked at the arrival.
+            // Zoom the chase cam in toward the main rotor (the rotor-FX tag), sampled while the heli
+            // is still linked at the arrival, for a focused push-in.
             rotor_pos = heli GetTagOrigin("main_rotor_jnt");
             zoom_pos = rotor_pos - fwd * FLYBY_ZOOM_OFFSET;
-
-            // Fade to black while the chase cam pushes in toward the rotor.
             foreach (player in level.heli_test_players)
             {
                 player thread lui::screen_fade_out(FADE_OUT_TIME);
@@ -240,17 +222,16 @@ function private _play()
             cam_ent RotateTo(VectorToAngles(rotor_pos - zoom_pos), FADE_OUT_TIME);
             wait(FADE_OUT_TIME);
 
-            // Fully black now: release the chase link, free the heli, and re-anchor align at the raw
-            // travel heading (the crash anim faces the anchor directly, unlike the static fly-in). A
-            // server frame lets the unlink/re-anchor settle before the scene starts — starting it the
-            // same frame bugs the handoff. The 90-deg model/anim flip happens here, hidden by black.
+            // Fully black: release the chase link, free the heli, re-anchor at raw travel (the crash
+            // anim faces the anchor directly). The server frame lets it settle before the scene
+            // starts; the 90-deg model/anim flip happens here, hidden by the black.
             _release_ride_camera();
             heli Unlink();
             align.angles = (0, travel[1], 0);
             WAIT_SERVER_FRAME;
         }
 
-        // Ropes track the heli via the same align (bundles are type "scene", NoSpawn=1).
+        // Ropes / rappellers: NoSpawn scene bundles, so we provide the models; all anchor on align.
         rope = Spawn("script_model", align.origin);
         rope SetModel("fxanim_quag_rappelcrash02_mod");
         rope NotSolid();
@@ -261,7 +242,6 @@ function private _play()
         rope2 NotSolid();
         align thread scene::play("cin_rope2", rope2);
 
-        // NPC rappellers (barnes + soldier anims retargeted onto mwr_mp_usmc_lmg_pb_base).
         npc1 = Spawn("script_model", align.origin);
         npc1 SetModel("c_zom_der_nikolai_mpc_fb");
         npc1 NotSolid();
@@ -272,7 +252,7 @@ function private _play()
         npc2 NotSolid();
         align thread scene::play("cin_rappel_npc2", npc2);
 
-        // Copilot idle, placed once at the driver-seat tag (no link).
+        // Copilot idle at the driver-seat tag (no link).
         pilot_align = Spawn("script_model", heli GetTagOrigin("tag_driver"));
         pilot_align.angles = heli GetTagAngles("tag_driver");
         pilot_align NotSolid();
@@ -288,14 +268,12 @@ function private _play()
         level.heli_test_ents = array(align, heli, interior, cam_body, cam_ent, rope, rope2, npc1, npc2, npc3, pilot_align);
 
         // First-person rappel scene drives its own rappel_cam — the chase link is already released,
-        // so we just play it. cin_rappel_fp animates cam_body (the fp view body); cin_heli_crash
-        // drives the heli. Both anchor on align at the travel heading.
+        // so we just play it. cin_heli_crash drives the heli; both anchor on align.
         cam_body Show();
         align thread scene::play("cin_rappel_fp", cam_body);
         align thread scene::play("cin_heli_crash", heli);
 
-        // Reveal the running first-person scene from black (fly-in path only). The brief hold lets
-        // the scene's rappel_cam + AnimScripted settle before the fade-in.
+        // Reveal from black once the scene is running (fly-in path only).
         if (b_flyby)
         {
             wait(FADE_HOLD);
@@ -305,9 +283,7 @@ function private _play()
             }
         }
 
-        // Teardown on the heli anim's final-frame self-notify (heli_end @1095). The anim holds
-        // the crashed pose through to its last frame, so the explosions play out with no
-        // scripted delay needed.
+        // Teardown on the heli anim's last-frame self-notify (heli_end @1095).
         heli waittill("heli_end");
 
         _restore_players();
@@ -317,17 +293,15 @@ function private _play()
     level.heli_test_playing = undefined;
 }
 
-// Chase camera: link each player's view to cam_ent (which _flyby sits behind + above the heli and
-// angles at it, then MoveTo's — so the view stays smooth). PlayerLinkToDelta gives clamped free-look
-// via its arc args; the granular control locks replace FreezeControls (which doesn't survive a link,
-// per the zipline). The heli fills the frame ahead since cam_ent is angled at it.
+// Chase cam: link each player's view to cam_ent (positioned + MoveTo'd by _flyby). PlayerLinkToDelta
+// gives clamped free-look; the granular locks replace FreezeControls (doesn't survive a link).
 function private _ride_camera(cam_ent)
 {
     level.heli_test_players = GetPlayers();
     foreach (player in level.heli_test_players)
     {
-        // PlayerLinkToDelta teleports the body to cam_ent (up in the air); save the real map origin
-        // so we can drop the body back onto it at the handoff — otherwise it falls to its death.
+        // Save the map origin: PlayerLinkToDelta teleports the body up, so we drop it back at the
+        // handoff — otherwise it falls to its death.
         player.heli_test_org = player.origin;
         player.heli_test_ang = player.angles;
 
@@ -340,9 +314,8 @@ function private _ride_camera(cam_ent)
     }
 }
 
-// Releases the chase link so the rappel scene's own first-person camera (rappel_cam) can take over,
-// and drops the body back on its saved map origin (frozen there) — the rappel view is the scene's
-// scripted camera, so the body stays grounded and invisible instead of falling from the sky.
+// Release the chase link so the scene's rappel_cam takes over, and drop the body back on its saved
+// origin (frozen) — the rappel view is scripted, so the grounded body stays invisible.
 function private _release_ride_camera()
 {
     if (!isdefined(level.heli_test_players))
@@ -379,8 +352,8 @@ function private _restore_players()
     {
         if (isdefined(player))
         {
-            player Unlink();          // safety: already released at the handoff
-            _ground_player(player);   // safety: already grounded at the handoff
+            player Unlink();
+            _ground_player(player);
             player.heli_test_org = undefined;
             player.heli_test_ang = undefined;
             player FreezeControls(false);
