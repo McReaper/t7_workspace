@@ -7680,6 +7680,28 @@
 		"skinOverride" ""
 		"type" "animated"
 	}
+	"fx_prop_huey_main_blade" ( "xmodel.gdf" )
+	{
+		"BulletCollisionLOD" "None"
+		"dropLOD" "Auto"
+		"filename" "_reapy\\heli\\fx_prop_huey_main_blade_LOD0.xmodel_bin"
+		"lodPresets" "performance"
+		"scale" "1"
+		"ShadowLOD" "Auto"
+		"skinOverride" ""
+		"type" "animated"
+	}
+	"fx_prop_huey_rear_blade" ( "xmodel.gdf" )
+	{
+		"BulletCollisionLOD" "None"
+		"dropLOD" "Auto"
+		"filename" "_reapy\\heli\\fx_prop_huey_rear_blade_LOD0.xmodel_bin"
+		"lodPresets" "performance"
+		"scale" "1"
+		"ShadowLOD" "Auto"
+		"skinOverride" ""
+		"type" "animated"
+	}
 	"gfx_fxt_veh_huey_prop_hub_blur" ( "material.gdf" )
 	{
 		"adsZscaleOn" "0"
