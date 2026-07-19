@@ -291,12 +291,16 @@ function private _play()
 
             arrival_rotor = end_pt + (heli GetTagOrigin("main_rotor_jnt") - heli.origin);
             zoom_pos = arrival_rotor - fwd * FLYBY_ZOOM_OFFSET;
+
+            // Long slow push-in; the fade only covers its last FADE_OUT_TIME, so black lands as the
+            // zoom finishes.
+            cam_ent MoveTo(zoom_pos, FLYBY_ZOOM_TIME);
+            cam_ent RotateTo(VectorToAngles(arrival_rotor - zoom_pos), FLYBY_ZOOM_TIME);
+            wait(FLYBY_ZOOM_TIME - FADE_OUT_TIME);
             foreach (player in level.heli_test_players)
             {
-                player thread lui::screen_fade_out(FADE_OUT_TIME);
+                player thread lui::screen_fade_out(FADE_OUT_TIME, "black", FADE_MENU_ID);
             }
-            cam_ent MoveTo(zoom_pos, FADE_OUT_TIME);
-            cam_ent RotateTo(VectorToAngles(arrival_rotor - zoom_pos), FADE_OUT_TIME);
             wait(FADE_OUT_TIME);
 
             // Fully black: release the link and anchor align at the arrival facing (the crash anim
@@ -349,13 +353,14 @@ function private _play()
         align thread scene::play("cin_rappel_fp", cam_body);
         align thread scene::play("cin_heli_crash", heli);
 
-        // Reveal from black once the scene is running (fly-in path only).
+        // Hold black over the handoff, then clear instantly (a smooth LUI fade-in can't run during
+        // the scene's IGC — the scene reveals itself). Clearing our own menu avoids a stuck black.
         if (b_flyby)
         {
             wait(FADE_HOLD);
             foreach (player in level.heli_test_players)
             {
-                player thread lui::screen_fade_in(FADE_IN_TIME);
+                player thread lui::screen_fade_in(0, "black", FADE_MENU_ID);
             }
         }
 
@@ -440,7 +445,6 @@ function private _restore_players()
             player AllowCrouch(true);
             player AllowProne(true);
             player setClientUIVisibilityFlag("hud_visible", 1);
-            player lui::screen_fade_in(0);   // defensive: never leave a stuck black screen
         }
     }
     level.heli_test_players = undefined;
