@@ -183,8 +183,9 @@ function private _flyby(heli, a_pts)
         prev_yaw = yaw;
     }
 
-    // Brake to a stop, entering at cruise speed (brake_time = 2*dist/speed, decel over the whole move)
-    // so there's no velocity jump. Nose flares up then settles level over the brake.
+    // Brake to a stop. Linear MoveTo lands exactly on the node — the pure-decel form
+    // (MoveTo(end_pos, t, 0, t)) overshot and settled back over the handoff frames, which read as the
+    // heli recoiling backward. The nose-up flare carries the braking feel instead.
     end_pos = a_pts[n - 1];
     final_yaw = prev_yaw;
     if (LengthSquared(end_pos - prev_pos) > 0.01)
@@ -192,10 +193,52 @@ function private _flyby(heli, a_pts)
         final_yaw = VectorToAngles(end_pos - prev_pos)[1];
     }
 
-    brake_time = 2 * Distance(prev_pos, end_pos) / FLYBY_SPEED_UPS;
-    heli MoveTo(end_pos, brake_time, 0, brake_time);
+    // Snap to whole server frames (like the cruise) so wait and MoveTo end on the same frame — else
+    // the heli is read mid-move at the handoff (~1 frame of travel) and reads as a small recoil.
+    brake_frames = Int(2 * Distance(prev_pos, end_pos) / FLYBY_SPEED_UPS / SERVER_FRAME + 0.5);
+    if (brake_frames < 1)
+    {
+        brake_frames = 1;
+    }
+    brake_time = brake_frames * SERVER_FRAME;
+    heli MoveTo(end_pos, brake_time);
     heli thread _flare(final_yaw + HELI_YAW_OFFSET, brake_time);
+    if (FLYBY_RECENTER)
+    {
+        _recenter_ride_view(brake_time);
+    }
     wait(brake_time);
+
+    // Wait until the heli is actually at rest before handing off: MoveTo leaves ~1 frame of residual
+    // travel past its wait, which the scene handoff would read as the heli recoiling to its final pose.
+    prev = heli.origin;
+    for (i = 0; i < 10; i++)
+    {
+        WAIT_SERVER_FRAME;
+        if (DistanceSquared(heli.origin, prev) < 1)
+        {
+            break;
+        }
+        prev = heli.origin;
+    }
+}
+
+// Ease every ride player's free-look clamps to 0 over the brake, so the view drifts back to the ride
+// facing and the scene camera cuts in on-axis. Non-blocking (engine-driven lerp).
+function private _recenter_ride_view(lerp_time)
+{
+    if (!isdefined(level.heli_test_players))
+    {
+        return;
+    }
+    ease = lerp_time * FLYBY_RECENTER_EASE;
+    foreach (player in level.heli_test_players)
+    {
+        if (isdefined(player))
+        {
+            player LerpViewAngleClamp(lerp_time, ease, ease, 0, 0, 0, 0);
+        }
+    }
 }
 
 // Nose flares up then settles level over the brake time (eased), on the heli independently so the
@@ -316,10 +359,12 @@ function private _play()
 
             _flyby(heli, a_pts);
 
-            // Anchor the scene at the arrival. The heli + FX + riders stay up (player still riding)
-            // while the scenes below spin up; we release + drop the riders after HELI_HANDOFF_FRAMES.
-            align.origin = end_pt;
+            // Anchor the scene on the flown heli's ACTUAL resting origin, not the last node: the
+            // flight overshoots the node (spline/brake) by ~20u, so anchoring on the node made the
+            // crash heli read as recoiling back off the ride's end pose. HELI_ARRIVE_FWD trims any
+            // residual crash-anim root offset. Ropes/rappellers ride along (they anchor on align too).
             align.angles = (0, final_yaw, 0);
+            align.origin = heli.origin + AnglesToForward(align.angles) * HELI_ARRIVE_FWD;
         }
 
         // Ropes / rappellers: NoSpawn scene bundles, so we provide the models; all anchor on align.
@@ -343,40 +388,59 @@ function private _play()
         npc2 NotSolid();
         align thread scene::play("cin_rappel_npc2", npc2);
 
-        heli thread _snd_out();
-        heli thread _crash_fx();
-
-        level.heli_test_ents = array(align, heli, interior, cam_body, rope, rope2, npc1, npc2);
-
-        // Rappel scene drives its own rappel_cam. cin_heli_crash drives the heli; both anchor on align.
+        // Rappel scene drives its own rappel_cam. The crash plays on a SEPARATE heli so the flown
+        // heli (still ridden) can overlap the scene's first-frame anchor and hide the AnimScripted pop.
         cam_body Show();
         align thread scene::play("cin_rappel_fp", cam_body);
-        align thread scene::play("cin_heli_crash", heli);
 
-        // Let the flight visuals overlap the scene spin-up for a few frames, then release the player
-        // ride and drop the ride riders (the scene's own pilot/rappellers have taken over).
+        if (b_flyby)
+        {
+            crash_heli = Spawn("script_model", align.origin);
+            crash_heli SetModel("t5_veh_helo_huey");
+            crash_heli NotSolid();
+            crash_interior = Spawn("script_model", align.origin);
+            crash_interior SetModel("t5_veh_helo_huey_att_interior");
+            crash_interior NotSolid();
+            crash_interior LinkTo(crash_heli, "body_animate_jnt", (0, 0, 0), (0, 0, 0));
+            crash_heli clientfield::set("heli_fx", HELI_FX_FLYING);
+            crash_heli clientfield::set("heli_snd", 1);
+        }
+        else
+        {
+            crash_heli = heli;
+            crash_interior = interior;
+        }
+        
+        crash_heli thread _snd_out();
+        crash_heli thread _crash_fx();
+        align thread scene::play("cin_heli_crash", crash_heli);
+
+        // Overlap: hold the flown heli + FX + riders + ride camera while the crash anim anchors, then
+        // hand off and drop the flown heli (crash_heli has been rendering for HELI_HANDOFF_FRAMES).
         if (b_flyby)
         {
             wait(HELI_HANDOFF_FRAMES * SERVER_FRAME);
             _release_ride_camera();
             _cleanup_riders();
+            interior Delete();
+            heli Delete();
         }
 
-        // Copilot: seat it AFTER the crash anim has posed the heli (and the ride pilot is gone), so it
-        // anchors on the crash-pose driver tag, not the stale flight-end pose (which made it clip).
-        pilot_align = Spawn("script_model", heli GetTagOrigin("tag_driver"));
-        pilot_align.angles = heli GetTagAngles("tag_driver");
+        // Copilot: seat it on the crash heli's driver tag once the crash anim has posed it (else it
+        // clips forward on the stale flight-end pose).
+        pilot_align = Spawn("script_model", crash_heli GetTagOrigin("tag_driver"));
+        pilot_align.angles = crash_heli GetTagAngles("tag_driver");
         pilot_align NotSolid();
         npc3 = Spawn("script_model", pilot_align.origin);
         npc3 SetModel("c_zom_der_dempsey_mpc_fb");
         npc3 NotSolid();
         pilot_align thread scene::play("cin_pilot", npc3);
-        heli thread _pilot_out(npc3);
-        level.heli_test_ents[level.heli_test_ents.size] = npc3;
-        level.heli_test_ents[level.heli_test_ents.size] = pilot_align;
+        crash_heli thread _pilot_out(npc3);
 
-        // Teardown on the heli anim's last-frame self-notify (heli_end @1095).
-        heli waittill("heli_end");
+        level.heli_test_ents = array(align, crash_heli, crash_interior, cam_body, rope, rope2, npc1, npc2, npc3, pilot_align);
+
+        // Teardown on the crash anim's last-frame self-notify (heli_end @1095).
+        crash_heli waittill("heli_end");
 
         _restore_players();
         _cleanup_prev();
@@ -392,10 +456,10 @@ function private _ride_camera(heli)
 {
     // A view mount linked to the ride tag with a local offset — PlayerLinkToDelta takes no position
     // offset, so the players link to this instead (tune HELI_VIEW_OFFSET).
-    mount = Spawn("script_model", heli GetTagOrigin(HELI_RIDE_TAG));
+    mount = Spawn("script_model", heli GetTagOrigin(HELI_VIEW_TAG));
     mount SetModel("tag_origin");
     mount NotSolid();
-    mount LinkTo(heli, HELI_RIDE_TAG, HELI_VIEW_OFFSET, (0, 0, 0));
+    mount LinkTo(heli, HELI_VIEW_TAG, HELI_VIEW_OFFSET, HELI_VIEW_ANGLES);
     level.heli_test_view_mount = mount;
 
     level.heli_test_players = GetPlayers();

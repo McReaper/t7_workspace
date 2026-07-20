@@ -22,12 +22,18 @@
 
 // First-person ride: the player's view links to the heli's ride tag (clamped free-look). The player
 // body (player_huey_pilot1_idle_loop1, head hidden) rides the same tag so the player sees it.
-#define HELI_RIDE_TAG       "tag_passenger"   // heli tag the player view + rider bodies sit on
-#define HELI_VIEW_OFFSET    (8, -3, -5)   // view offset from the ride tag, local (fwd, left, up): 10 fwd, 3 right, 5 down
+#define HELI_RIDE_TAG       "tag_passenger"   // heli tag the rider bodies sit on
+#define HELI_VIEW_TAG       "tag_passenger"   // heli tag the view mount links to (cockpit; tag_origin sits up at the rotor)
+#define HELI_VIEW_OFFSET    (8, -5, -5)   // view offset from the ride tag, local (fwd, left, up): 8 fwd, 5 right, 5 down
+#define HELI_VIEW_ANGLES    (0, 0, 0)     // view orientation trim vs the ride tag (pitch, yaw, roll); (0,0,0) = straight
 #define FLYBY_LOOK_RIGHT    65     // free-look clamp (deg) from the ride facing; narrow = locked
 #define FLYBY_LOOK_LEFT     65
 #define FLYBY_LOOK_UP       45
-#define FLYBY_LOOK_DOWN     50
+#define FLYBY_LOOK_DOWN     45
+// Over the brake, ease the free-look clamps back to 0 so the view recenters on the ride facing and
+// the scene cut lands on-axis (no snap if the player was looking away). 0 = keep free-look to the end.
+#define FLYBY_RECENTER      1
+#define FLYBY_RECENTER_EASE 0.3    // accel/decel fraction of the recenter lerp (0..0.5)
 
 // Rider bodies visible during the ride (pilot + the player's own body), linked to heli tags and
 // playing an idle so they ride along animated. animation::play links to the tag + animates.
@@ -39,3 +45,6 @@
 // Frames the flight visuals (heli + FX + riders) persist while the scene spins up, so there's no
 // gap; the two overlap statically at the same pose for these frames.
 #define HELI_HANDOFF_FRAMES 3
+// The crash anim's frame-0 root sits slightly behind the anchor; nudge the crash anchor forward
+// (units, along the arrival facing) so the crash heli lands on the flown heli's end pose (no recoil).
+#define HELI_ARRIVE_FWD     0
