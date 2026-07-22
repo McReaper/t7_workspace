@@ -12,6 +12,7 @@
 #define FLYBY_PITCH_FWD     15.0   // nose-down forward lean while cruising
 #define FLYBY_BANK_PER_DEG  1.5    // model roll (deg) per deg of per-piece yaw change (flip sign if reversed)
 #define FLYBY_BANK_MAX      35     // max model roll (deg)
+#define FLYBY_YAW_SMOOTH    0.35   // nose eases toward the path each piece (1 = snap/old; lower = softer turns, cuts corners)
 // Arrival brake/flare: over the last (1 - FLYBY_LEVEL_FRAC) of the path the heli decelerates, the
 // nose flares up (brake), then settles level for the handoff.
 #define FLYBY_LEVEL_FRAC    0.80   // path fraction after which the braking/flare tail begins

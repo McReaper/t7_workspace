@@ -160,11 +160,12 @@ function private _flyby(heli, a_pts)
         pos = _spline_pos(a_pts, (n - 1) * (i / num_pieces));
         dir = pos - prev_pos;
 
-        yaw = prev_yaw;
+        target_yaw = prev_yaw;
         if (LengthSquared(dir) > 0.01)
         {
-            yaw = VectorToAngles(dir)[1];
+            target_yaw = VectorToAngles(dir)[1];
         }
+        yaw = prev_yaw + AngleClamp180(target_yaw - prev_yaw) * FLYBY_YAW_SMOOTH;
         roll = math::clamp(-1 * FLYBY_BANK_PER_DEG * AngleClamp180(yaw - prev_yaw), -1 * FLYBY_BANK_MAX, FLYBY_BANK_MAX);
 
         // Snap to whole server frames so MoveTo and wait line up (else the heli pauses each joint).
@@ -354,16 +355,11 @@ function private _play()
 
         if (b_flyby)
         {
-            end_pt = a_pts[a_pts.size - 1];
-            final_yaw = VectorToAngles(end_pt - a_pts[a_pts.size - 2])[1];
-
             _flyby(heli, a_pts);
 
-            // Anchor the scene on the flown heli's ACTUAL resting origin, not the last node: the
-            // flight overshoots the node (spline/brake) by ~20u, so anchoring on the node made the
-            // crash heli read as recoiling back off the ride's end pose. HELI_ARRIVE_FWD trims any
-            // residual crash-anim root offset. Ropes/rappellers ride along (they anchor on align too).
-            align.angles = (0, final_yaw, 0);
+            // Anchor on the flown heli's ACTUAL resting pose (origin AND yaw) so the crash lands
+            // exactly on the ride's end pose — no recoil, no heading pop. HELI_ARRIVE_FWD trims root.
+            align.angles = (0, heli.angles[1] - HELI_YAW_OFFSET, 0);
             align.origin = heli.origin + AnglesToForward(align.angles) * HELI_ARRIVE_FWD;
         }
 
