@@ -6,16 +6,16 @@
 
 #insert scripts\shared\shared.gsh;
 #insert scripts\shared\version.gsh;
-#insert scripts\zm\_heli_test.gsh;
+#insert scripts\zm\_heli_intro.gsh;
 
 #precache("client_fx", "_reapy/fx_huey_main_blade_full");
 #precache("client_fx", "_reapy/fx_huey_small_blade_full");
 #precache("client_fx", "killstreaks/fx_heli_smk_trail_tail");
 #precache("client_fx", "killstreaks/fx_heli_exp_lg");
 
-#namespace heli_test;
+#namespace heli_intro;
 
-REGISTER_SYSTEM("heli_test", &__init__, undefined)
+REGISTER_SYSTEM("heli_intro", &__init__, undefined)
 
 function __init__()
 {
@@ -51,7 +51,7 @@ function private _on_snd_cf(localclientnum, oldval, newval, bnewent, binitialsna
 }
 
 // Crash FX, played client-side so the looping blur/trail can be StopFX'd without deleting the
-// host heli (the GSC-FX trap that was killing the heli mid-anim). States: see _heli_test.gsh.
+// host heli (the GSC-FX trap that was killing the heli mid-anim). States: see _heli_intro.gsh.
 function private _on_fx_cf(localclientnum, oldval, newval, bnewent, binitialsnap, fieldname, bwastimejump)
 {
     switch (newval)

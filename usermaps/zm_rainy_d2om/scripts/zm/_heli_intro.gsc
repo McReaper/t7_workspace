@@ -1,5 +1,5 @@
-// Dev throwaway: plays the ported BO1 huey rappel intro. Console: `heli_test 1`
-// (a ModVar, not a dvar, so it can be set at runtime in a usermap).
+// Ported BO1 huey rappel intro. Public entry: heli_intro::play() (thread it). A debug console
+// trigger (ModVar `heli_intro 1`) is compiled in only when DEBUG_HELI_INTRO is set in the .gsh.
 
 #using scripts\codescripts\struct;
 
@@ -12,7 +12,7 @@
 
 #insert scripts\shared\shared.gsh;
 #insert scripts\shared\version.gsh;
-#insert scripts\zm\_heli_test.gsh;
+#insert scripts\zm\_heli_intro.gsh;
 
 #using_animtree("generic");
 
@@ -28,9 +28,9 @@
 #precache("script_bundle", HELI_GLASS_SCENE_NPC);
 #precache("xcam", "rappel_cam");
 
-#namespace heli_test;
+#namespace heli_intro;
 
-REGISTER_SYSTEM("heli_test", &__init__, undefined)
+REGISTER_SYSTEM("heli_intro", &__init__, undefined)
 
 function __init__()
 {
@@ -44,7 +44,11 @@ function __init__()
     level scene::init("cin_rappel_npc2");
     level scene::init("cin_pilot");
     level scene::init("cin_pilot_player");
-    level thread _watch();
+
+    if (DEBUG_HELI_INTRO)
+    {
+        level thread _watch();
+    }
 }
 
 function private _pilot_out(pilot)
@@ -336,12 +340,12 @@ function private _flyby(heli, a_pts)
 // facing and the scene camera cuts in on-axis. Non-blocking (engine-driven lerp).
 function private _recenter_ride_view(lerp_time)
 {
-    if (!isdefined(level.heli_test_players))
+    if (!isdefined(level.heli_intro_players))
     {
         return;
     }
     ease = lerp_time * FLYBY_RECENTER_EASE;
-    foreach (player in level.heli_test_players)
+    foreach (player in level.heli_intro_players)
     {
         if (isdefined(player))
         {
@@ -366,52 +370,57 @@ function private _spawn_riders(heli)
     body UseAnimTree(#animtree);
     body thread animation::play(HELI_PLAYER_IDLE, heli, HELI_RIDE_TAG);
 
-    level.heli_test_riders = array(pilot, body);
+    level.heli_intro_riders = array(pilot, body);
 }
 
 function private _cleanup_riders()
 {
-    if (!isdefined(level.heli_test_riders))
+    if (!isdefined(level.heli_intro_riders))
     {
         return;
     }
-    foreach (ent in level.heli_test_riders)
+    foreach (ent in level.heli_intro_riders)
     {
         if (isdefined(ent))
         {
             ent Delete();
         }
     }
-    level.heli_test_riders = undefined;
+    level.heli_intro_riders = undefined;
 }
 
+// Debug-only console trigger (see DEBUG_HELI_INTRO): set the `heli_intro` ModVar to replay.
 function private _watch()
 {
     level endon("end_game");
 
-    ModVar("heli_test", "");
+    ModVar("heli_intro", "");
     while (true)
     {
         WAIT_SERVER_FRAME;
 
-        val = GetDvarString("heli_test", "");
+        val = GetDvarString("heli_intro", "");
         if (!isdefined(val) || val == "")
         {
             continue;
         }
-        ModVar("heli_test", "");
+        ModVar("heli_intro", "");
 
-        if (!IS_TRUE(level.heli_test_playing))
-        {
-            level thread _play();
-        }
+        level thread play();
     }
 }
 
-function private _play()
+// Plays the whole intro once (flight -> crash -> rappel). Public entry point — thread it. Re-entrant
+// guarded, so a second call while playing is a no-op.
+function play()
 {
     level endon("end_game");
-    level.heli_test_playing = true;
+    if (IS_TRUE(level.heli_intro_playing))
+    {
+        return;
+    }
+    level.heli_intro_playing = true;
+    level.heli_intro_ents = [];
 
     spawn_node = _get_node("heli_intro_spawn");
     if (isdefined(spawn_node))
@@ -419,7 +428,7 @@ function private _play()
         a_pts = _flyby_path();
         b_flyby = a_pts.size >= 2;
 
-        align = Spawn("script_model", spawn_node.origin);
+        align = _track(Spawn("script_model", spawn_node.origin));
         align SetModel("tag_origin");
         if (isdefined(spawn_node.angles))
         {
@@ -427,21 +436,15 @@ function private _play()
         }
         align NotSolid();
 
-        heli = Spawn("script_model", spawn_node.origin);
-        heli SetModel("t5_veh_helo_huey");
-        heli NotSolid();
-        interior = Spawn("script_model", spawn_node.origin);
-        interior SetModel("t5_veh_helo_huey_att_interior");
-        interior NotSolid();
-        interior LinkTo(heli, "body_animate_jnt", (0, 0, 0), (0, 0, 0));
+        a_huey = _spawn_huey(spawn_node.origin);
+        heli = a_huey[0];
+        interior = a_huey[1];
 
         // FP rappel body (animated by cin_rappel_fp). Hidden during the first-person ride.
-        cam_body = Spawn("script_model", spawn_node.origin);
+        cam_body = _track(Spawn("script_model", spawn_node.origin));
         cam_body SetModel("c_zom_der_dempsey_viewbody");
         cam_body NotSolid();
         cam_body Hide();
-
-        level.heli_test_ents = array(align, heli, interior, cam_body);
 
         // Rotor blur + rotor-bed loop for the whole intro (both CSC).
         heli clientfield::set("heli_fx", HELI_FX_FLYING);
@@ -458,49 +461,30 @@ function private _play()
         }
 
         // Ropes / rappellers: NoSpawn scene bundles, so we provide the models; all anchor on align.
-        rope = Spawn("script_model", align.origin);
-        rope SetModel("fxanim_quag_rappelcrash02_mod");
-        rope NotSolid();
-        align thread scene::play("cin_rope", rope);
-
-        rope2 = Spawn("script_model", align.origin);
-        rope2 SetModel("fxanim_quag_rappelcrash01_mod");
-        rope2 NotSolid();
-        align thread scene::play("cin_rope2", rope2);
-
-        npc1 = Spawn("script_model", align.origin);
-        npc1 SetModel("c_zom_der_nikolai_mpc_fb");
-        npc1 NotSolid();
-        align thread scene::play("cin_rappel_npc1", npc1);
-
-        npc2 = Spawn("script_model", align.origin);
-        npc2 SetModel("c_zom_der_takeo_mpc_fb");
-        npc2 NotSolid();
-        align thread scene::play("cin_rappel_npc2", npc2);
+        _spawn_scene_actor(align, "fxanim_quag_rappelcrash02_mod", "cin_rope");
+        _spawn_scene_actor(align, "fxanim_quag_rappelcrash01_mod", "cin_rope2");
+        _spawn_scene_actor(align, "c_zom_der_nikolai_mpc_fb", "cin_rappel_npc1");
+        _spawn_scene_actor(align, "c_zom_der_takeo_mpc_fb", "cin_rappel_npc2");
 
         // Rappel scene drives its own rappel_cam. The crash plays on a SEPARATE heli so the flown
         // heli (still ridden) can overlap the scene's first-frame anchor and hide the AnimScripted pop.
         cam_body Show();
         align thread scene::play("cin_rappel_fp", cam_body);
 
+        // Crash on a separate heli when we flew one in (so the flown heli can overlap the anchor);
+        // otherwise the crash plays on the same heli.
         if (b_flyby)
         {
-            crash_heli = Spawn("script_model", align.origin);
-            crash_heli SetModel("t5_veh_helo_huey");
-            crash_heli NotSolid();
-            crash_interior = Spawn("script_model", align.origin);
-            crash_interior SetModel("t5_veh_helo_huey_att_interior");
-            crash_interior NotSolid();
-            crash_interior LinkTo(crash_heli, "body_animate_jnt", (0, 0, 0), (0, 0, 0));
+            a_crash = _spawn_huey(align.origin);
+            crash_heli = a_crash[0];
             crash_heli clientfield::set("heli_fx", HELI_FX_FLYING);
             crash_heli clientfield::set("heli_snd", 1);
         }
         else
         {
             crash_heli = heli;
-            crash_interior = interior;
         }
-        
+
         crash_heli thread _snd_out();
         crash_heli thread _crash_fx();
         crash_heli thread _glass_out();
@@ -517,18 +501,7 @@ function private _play()
             heli Delete();
         }
 
-        // Copilot: seat it on the crash heli's driver tag once the crash anim has posed it (else it
-        // clips forward on the stale flight-end pose).
-        pilot_align = Spawn("script_model", crash_heli GetTagOrigin("tag_driver"));
-        pilot_align.angles = crash_heli GetTagAngles("tag_driver");
-        pilot_align NotSolid();
-        npc3 = Spawn("script_model", pilot_align.origin);
-        npc3 SetModel("c_zom_der_dempsey_mpc_fb");
-        npc3 NotSolid();
-        pilot_align thread scene::play("cin_pilot", npc3);
-        crash_heli thread _pilot_out(npc3);
-
-        level.heli_test_ents = array(align, crash_heli, crash_interior, cam_body, rope, rope2, npc1, npc2, npc3, pilot_align);
+        _seat_copilot(crash_heli);
 
         // Teardown on the crash anim's last-frame self-notify (heli_end @1095).
         crash_heli waittill("heli_end");
@@ -537,7 +510,54 @@ function private _play()
         _cleanup_prev();
     }
 
-    level.heli_test_playing = undefined;
+    level.heli_intro_playing = undefined;
+}
+
+// Tracks a spawned entity for teardown (see _cleanup_prev) and returns it, so spawns read as one line.
+function private _track(ent)
+{
+    level.heli_intro_ents[level.heli_intro_ents.size] = ent;
+    return ent;
+}
+
+// The flown/crash huey is a body model + a linked interior model; both tracked. Returns [heli, interior].
+function private _spawn_huey(origin)
+{
+    heli = _track(Spawn("script_model", origin));
+    heli SetModel("t5_veh_helo_huey");
+    heli NotSolid();
+
+    interior = _track(Spawn("script_model", origin));
+    interior SetModel("t5_veh_helo_huey_att_interior");
+    interior NotSolid();
+    interior LinkTo(heli, "body_animate_jnt", (0, 0, 0), (0, 0, 0));
+
+    return array(heli, interior);
+}
+
+// A NoSpawn scene actor: we provide the model, the scene bundle animates it, anchored on align.
+function private _spawn_scene_actor(align, model, scene)
+{
+    ent = _track(Spawn("script_model", align.origin));
+    ent SetModel(model);
+    ent NotSolid();
+    align thread scene::play(scene, ent);
+    return ent;
+}
+
+// Copilot: seat it on the crash heli's driver tag once the crash anim has posed it (else it clips
+// forward on the stale flight-end pose), and delete it at crash_begin.
+function private _seat_copilot(crash_heli)
+{
+    pilot_align = _track(Spawn("script_model", crash_heli GetTagOrigin("tag_driver")));
+    pilot_align.angles = crash_heli GetTagAngles("tag_driver");
+    pilot_align NotSolid();
+
+    npc = _track(Spawn("script_model", pilot_align.origin));
+    npc SetModel("c_zom_der_dempsey_mpc_fb");
+    npc NotSolid();
+    pilot_align thread scene::play("cin_pilot", npc);
+    crash_heli thread _pilot_out(npc);
 }
 
 // First-person ride: link each player's view to the heli's ride tag with clamped free-look, so they
@@ -551,15 +571,15 @@ function private _ride_camera(heli)
     mount SetModel("tag_origin");
     mount NotSolid();
     mount LinkTo(heli, HELI_VIEW_TAG, HELI_VIEW_OFFSET, HELI_VIEW_ANGLES);
-    level.heli_test_view_mount = mount;
+    level.heli_intro_view_mount = mount;
 
-    level.heli_test_players = GetPlayers();
-    foreach (player in level.heli_test_players)
+    level.heli_intro_players = GetPlayers();
+    foreach (player in level.heli_intro_players)
     {
         // Save the map origin — the link teleports the body onto the heli, so we drop it back
         // grounded at the handoff (else it falls to its death).
-        player.heli_test_org = player.origin;
-        player.heli_test_ang = player.angles;
+        player.heli_intro_org = player.origin;
+        player.heli_intro_ang = player.angles;
 
         player DisableWeapons();
         player DisableOffhandWeapons();
@@ -575,11 +595,11 @@ function private _ride_camera(heli)
 // origin (frozen) — the rappel view is scripted, so the grounded body stays invisible.
 function private _release_ride_camera()
 {
-    if (!isdefined(level.heli_test_players))
+    if (!isdefined(level.heli_intro_players))
     {
         return;
     }
-    foreach (player in level.heli_test_players)
+    foreach (player in level.heli_intro_players)
     {
         if (isdefined(player))
         {
@@ -589,36 +609,36 @@ function private _release_ride_camera()
         }
     }
 
-    if (isdefined(level.heli_test_view_mount))
+    if (isdefined(level.heli_intro_view_mount))
     {
-        level.heli_test_view_mount Delete();
-        level.heli_test_view_mount = undefined;
+        level.heli_intro_view_mount Delete();
+        level.heli_intro_view_mount = undefined;
     }
 }
 
 function private _ground_player(player)
 {
-    if (isdefined(player.heli_test_org))
+    if (isdefined(player.heli_intro_org))
     {
-        player SetOrigin(player.heli_test_org);
-        player SetPlayerAngles(player.heli_test_ang);
+        player SetOrigin(player.heli_intro_org);
+        player SetPlayerAngles(player.heli_intro_ang);
     }
 }
 
 function private _restore_players()
 {
-    if (!isdefined(level.heli_test_players))
+    if (!isdefined(level.heli_intro_players))
     {
         return;
     }
-    foreach (player in level.heli_test_players)
+    foreach (player in level.heli_intro_players)
     {
         if (isdefined(player))
         {
             player Unlink();
             _ground_player(player);
-            player.heli_test_org = undefined;
-            player.heli_test_ang = undefined;
+            player.heli_intro_org = undefined;
+            player.heli_intro_ang = undefined;
             player Show();
             player FreezeControls(false);
             player EnableWeapons();
@@ -628,27 +648,27 @@ function private _restore_players()
             player setClientUIVisibilityFlag("hud_visible", 1);
         }
     }
-    level.heli_test_players = undefined;
+    level.heli_intro_players = undefined;
 }
 
 function private _cleanup_prev()
 {
     _cleanup_riders();   // safety: released at the handoff, but not on an aborted run
-    if (isdefined(level.heli_test_view_mount))
+    if (isdefined(level.heli_intro_view_mount))
     {
-        level.heli_test_view_mount Delete();
-        level.heli_test_view_mount = undefined;
+        level.heli_intro_view_mount Delete();
+        level.heli_intro_view_mount = undefined;
     }
-    if (!isdefined(level.heli_test_ents))
+    if (!isdefined(level.heli_intro_ents))
     {
         return;
     }
-    foreach (ent in level.heli_test_ents)
+    foreach (ent in level.heli_intro_ents)
     {
         if (isdefined(ent))
         {
             ent Delete();
         }
     }
-    level.heli_test_ents = undefined;
+    level.heli_intro_ents = undefined;
 }

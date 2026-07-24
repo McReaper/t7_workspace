@@ -1,5 +1,5 @@
-scriptparsetree,scripts/zm/_heli_test.gsc
-scriptparsetree,scripts/zm/_heli_test.csc
+scriptparsetree,scripts/zm/_heli_intro.gsc
+scriptparsetree,scripts/zm/_heli_intro.csc
 
 xcam,rappel_cam
 

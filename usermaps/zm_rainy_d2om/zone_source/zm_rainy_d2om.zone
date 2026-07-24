@@ -28,5 +28,5 @@ material,filter_cam_bodycam
 // with pb_zipline_*; its core_common.csv line stays commented to avoid a duplicate.
 include,zipline
 
-// Dev: BO1 huey arrival test (heli.gdt + heli_scenes.gdt). Console: heli_test 1.
+// BO1 huey rappel intro (heli.gdt + heli_scenes.gdt). Debug console: heli_intro 1 (DEBUG_HELI_INTRO).
 include,heli

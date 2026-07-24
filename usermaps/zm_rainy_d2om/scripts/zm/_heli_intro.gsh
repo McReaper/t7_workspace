@@ -1,3 +1,7 @@
+// Debug: compile in the console replay trigger (ModVar `heli_intro 1`). Ship with this at 0 — the intro
+// is then only played by a caller of heli_intro::play(). 1 = dev iteration (current).
+#define DEBUG_HELI_INTRO    1
+
 // Building-window shatter: two panes break as the crash punches through — the player side and the NPC
 // rappeller's side. Each pane fires on its own notetrack on the crash anim (add them in APE), so the
 // timing lives in the asset, not the script. On its notetrack: hide the intact script_brushmodel and
