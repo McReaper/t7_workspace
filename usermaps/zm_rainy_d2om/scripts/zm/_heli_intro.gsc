@@ -155,6 +155,32 @@ function private _flyby_path()
     return a_pts;
 }
 
+// Chaikin corner-cutting with pinned endpoints: each pass replaces every segment by two points at
+// 1/4 and 3/4, rounding the interior waypoints so the path detaches from them and turns get gentler.
+// Endpoints stay put (start/end still land on the first/last node). iters=0 returns the path unchanged.
+function private _smooth_path(a_pts, iters)
+{
+    if (a_pts.size < 3)
+    {
+        return a_pts;
+    }
+    for (it = 0; it < iters; it++)
+    {
+        out = [];
+        out[0] = a_pts[0];
+        for (i = 0; i < a_pts.size - 1; i++)
+        {
+            p = a_pts[i];
+            q = a_pts[i + 1];
+            out[out.size] = p * 0.75 + q * 0.25;
+            out[out.size] = p * 0.25 + q * 0.75;
+        }
+        out[out.size] = a_pts[a_pts.size - 1];
+        a_pts = out;
+    }
+    return a_pts;
+}
+
 // Whole-server-frame count to travel dist at speed (min 1), so MoveTo and wait land on the same
 // frame — else the heli is read mid-move and pauses/recoils at each joint.
 function private _frames_for(dist, speed)
@@ -203,6 +229,9 @@ function private _flyby(heli, a_pts)
 {
     level endon("end_game");
 
+    // Round the interior waypoints so the flight detaches from them and turns are gentler; endpoints
+    // stay pinned, so it still starts on the spawn node and ends exactly on the last node.
+    a_pts = _smooth_path(a_pts, FLYBY_SMOOTH_ITERS);
     n = a_pts.size;
     start_yaw = VectorToAngles(a_pts[1] - a_pts[0])[1];
 

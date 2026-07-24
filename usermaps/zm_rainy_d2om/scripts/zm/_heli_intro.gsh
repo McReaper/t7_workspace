@@ -21,11 +21,12 @@
 #define HELI_FX_IMPACT      3   // first impact (heli_impact @550): trail off + explosion
 #define HELI_FX_EXPLODE     4   // second explosion (heli_explo @608): rotor blur off + explosion
 
-// Flyby (heli arrival) — Catmull-Rom curve through the heli_intro_spawn target chain, sampled into
-// short linear MoveTo pieces (smooth), with the model banking into its turns. No baked fly-in anim
-// exists (BO1 did it with a vehicle path).
+// Flyby (heli arrival) — Chaikin-smoothed then Catmull-Rom curve through the heli_intro_spawn target
+// chain, sampled into short linear MoveTo pieces (smooth), with the model banking into its turns. No
+// baked fly-in anim exists (BO1 did it with a vehicle path).
 #define FLYBY_SPEED_UPS     500    // fly-in speed (units/sec); piece durations derived from length
 #define FLYBY_ARRIVE_UPS    250    // speed (units/sec) at the end of the braking tail; eased down from cruise (lower = slower crawl at arrival)
+#define FLYBY_SMOOTH_ITERS  2      // Chaikin corner-cut passes before sampling: 0 = fly through every node; higher = more detached from the nodes, gentler turns
 #define FLYBY_SEG_LEN       120    // spline sample step (units per MoveTo piece); smaller = smoother
 #define FLYBY_PITCH_FWD     15.0   // nose-down forward lean while cruising
 #define FLYBY_BANK_PER_DEG  1.5    // model roll (deg) per deg of per-piece yaw change (flip sign if reversed)
