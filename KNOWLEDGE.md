@@ -213,6 +213,29 @@ And **do not** declare those constants in the techsetdef (no `<cgNN>` + Tweak fo
 
 > Sources: raw install ([`code\hlslcodeconstantbuffers.h`](.\share\raw\shaders_stable\code\hlslcodeconstantbuffers.h), `_filters.gsh/.csc`, `tactical_damage.techsetdef`, `posterization`/`chromatic_aberration_postfx`); t7kb (gscode API, LG-RZ BlackOps3Shaders, Scobalula raindrops, bo3modtools Discord). Discovered debugging the `zm_rainy_d2om` bodycam vignette.
 
+## First-person cinematic camera (XCam) — and the FOV that fought me for hours
+
+Playing a ported campaign IGC (BO1 rappel) in first person in a ZM map. Hard-won findings:
+
+- **A scene does NOT drive the player's first-person view in ZM.** The body anim plays (visible in 3rd person) but the camera stays put. In shipped [`scene_shared.gsc`](.\share\raw\scripts\shared\scene_shared.gsc) `reset_player`, the view-lock calls (`ShowViewModel`, `StartCameraTween`) are commented `//TODO_CODE: only supported for SP`. So the camera must come from an **XCam**.
+- **XCam = the camera mechanism.** Animate a camera in Maya, export `xcam` (CoDMayaTools), asset `xcam.gdf` (`filename` → `.xcam_export`, **`use_firstperson_player 1`** = this is what renders the first-person arms/body, `parent_scene` → the scene bundle), zone `xcam,<name>`. Play per-client with **`PlayMainCamXCam(localClientNum, "<xcam>", 0, "", "", origin, angles)`** in CSC (CSC/per-client ⇒ co-op-friendly). The shipped campaign does exactly this in `cp_mi_zurich_coalescence_util.csc::zurich_server_cam` — note the **empty sub-camera name `""`**, not a named sub-cam.
+- **THE FOV TRAP (cost me hours): the `"fov"` field in the `.xcam_export` is a DECOY.** Each camera block has **`"aperture": "FOCAL_LENGTH"`**, and in that mode the engine **derives the runtime FOV from `flen` (focal length) and ignores `fov` entirely.** Editing `"fov"` 40→160 = zero change in-game. `cg_fov` is **also** ignored by a played main-cam xcam. The real lever is **`flen`: LOWER `flen` = WIDER FOV** (e.g. `flen 10` ≈ very wide / ~120° feel; shipped CAC inspect cams sit ~`flen 27` = tight). Set it via the Maya camera **Focal Length** before export, or edit every `"flen"` in the `.xcam_export` (per-frame + camera-def) directly. Also fix **`aspectratio` to `1.7786`** (16:9) — CoDMayaTools may write `1.5`, which skews framing.
+- **The bodycam (or any fisheye postfx) warps the whole view including the XCam** — it's always-on once `setfilterpassenabled(...true)`, so disable the filter pass during the cinematic or it masks the FOV.
+- **CoDMayaTools XCam export is half-ported to Py3** — on modern Maya `ExportXCam` throws: `encode('ascii','ignore').replace()` (drop the encode), `range(0, numframes)` with a float (cast `int`), and it writes `framerate`/`numframes` as floats `30.0`/`1096.0` → linker rejects `JSON: Value is not an int64_t` (cast `int(fps)`/`int(fLength)`).
+
+> Sources: raw install (`scene_shared.gsc`, shipped `ui_cam_cac_*.xcam_export` camera blocks with `aperture`/`flen`), decompiled campaign (`cp_mi_zurich_coalescence_util.csc`, `..._root_cinematics.gsc`), t7kb (gscode `PlayMainCamXCam`/`SetExtraCamFocalLength`, `xcam` asset def). Discovered porting the BO1 heli-rappel intro into `zm_rainy_d2om`.
+
+## Animated props from a ported IGC (ropes / fxanim) — the rope that fought me for a whole session
+
+Porting the BO1 heli-rappel: 3 rappel ropes (`fxanim_quag_rappelcrash01/02_mod` + `_anim`) hanging off the moving/crashing Huey. Hard-won:
+
+- **The model bin needs no Maya.** Greyhound already dumps a Wraith `VERSION 6` `.XMODEL_EXPORT`; feed it straight to `bin\exportxbin.exe <file>` (single-arg, from its folder) → a valid BO3 `.xmodel_bin` (header `*LZ4* … 55 c3`). Only the **anim** needs the Maya round-trip (the `.cast`/`.seanim` don't convert directly). Materials came named `global_rope_fast` + `mtl_anim_jun_carabiner` (the carabiner mesh is baked into the rope model), authored in the GDT off an existing `lit`/`cloth` material.
+- **Play the anim with `AnimScripted`, NOT `scene::play`/`SetAnim`.** A scene bundle `MainAnim` and `SetAnim` both left the rope mesh **frozen** (spawns, no bones move). The cymbal-monkey verb works: `rope UseAnimTree(#animtree); rope AnimScripted("note", origin, angles, %anim);` — it advances the scripted anim on the model's own skeleton. Anim must be listed in the `#using_animtree` tree (added to `all_player.atr` + its `gen/` copy).
+- **Don't attach the rope to the heli — co-locate origins.** The rope anim has **zero root motion** (PART 0 `tag_origin` = `0,0,0` every frame) but its child bones carry the whole world sweep (PART 1 `OFFSET` Z went −117 → −1680 over the anim). It was authored on the **same IGC origin** as the heli anim, so `AnimScripted`-ing it at that same spawn origin makes it track the flying/crashing heli **for free**. Every attach attempt made it worse: `LinkTo(heli, tag)` → follows but frozen; scene `AlignTargetTag=tag_origin` + `heli scene::play` → neither follows nor animates; object-2-aligned-to-heli-tag → killed the heli's own anim. Attach nothing.
+- **3 ropes split across 2 assets:** `crash01_mod` = 1 rope (67 bones), `crash02_mod` = 2 ropes (134 bones ≈ 2×67), one per rappeller. Each is one `AnimScripted` call at the shared origin.
+
+> Sources: t7kb shipped scene bundles (`p7_fxanim_cp_*_rappel_rope`, `cin_pro_16_02_apc_vign_flung_robot_*` for `aligntargettag`), raw `scene_shared.gsc` (`scene::play`), `_zm_weap_cymbal_monkey.gsc` (`AnimScripted`). Full write-up in `HELI_INTRO_HANDOFF.md`.
+
 ## Troubleshoot
 
 When booting game after a successful linking of the scripts in the tools, and having error: *`Error linking script: "blabla.gsc"`*, usually it means one script file is missing from zone file. It mostly does this because link step does the linkage with zoned files, not files from the folder AFAIK.

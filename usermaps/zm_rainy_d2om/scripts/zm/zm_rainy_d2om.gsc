@@ -57,6 +57,9 @@
 // First-person zipline traversal (feature: _zipline.gsc, config: _zipline.gsh).
 #using scripts\zm\_zipline;
 
+// BO1 huey rappel intro (heli_intro::play(); debug console trigger via DEBUG_HELI_INTRO).
+#using scripts\zm\_heli_intro;
+
 // *****************************************************************************
 // MAIN
 // *****************************************************************************

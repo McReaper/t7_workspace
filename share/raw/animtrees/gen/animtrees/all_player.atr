@@ -4819,6 +4819,7 @@ main
 		pb_zipline_enter
 		pb_zipline_loop
 		pb_zipline_exit
+		int_quag_b05_repeltomacv_player
 	}
 }
 turning
