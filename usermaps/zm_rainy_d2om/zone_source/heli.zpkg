@@ -13,6 +13,15 @@ scriptbundle,cin_rappel_npc2
 scriptbundle,cin_pilot
 scriptbundle,cin_pilot_player
 
+// Building-window shatter as the crash passes through it (fired at crash anim frame 460): player side
+// (glass_02) + the NPC rappeller's side (glass_03).
+scriptbundle,p7_fxanim_cp_newworld_train_glass_02_bundle
+xmodel,p7_fxanim_cp_newworld_train_glass_02_mod
+xanim,p7_fxanim_cp_newworld_train_glass_02_anim
+scriptbundle,p7_fxanim_cp_newworld_train_glass_03_bundle
+xmodel,p7_fxanim_cp_newworld_train_glass_03_mod
+xanim,p7_fxanim_cp_newworld_train_glass_03_anim
+
 xmodel,t5_veh_helo_huey
 xmodel,t5_veh_helo_huey_att_interior
 xmodel,fx_prop_huey_hub_blur

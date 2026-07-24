@@ -1,3 +1,16 @@
+// Building-window shatter: two panes break as the crash punches through — the player side and the NPC
+// rappeller's side. Each pane fires on its own notetrack on the crash anim (add them in APE), so the
+// timing lives in the asset, not the script. On its notetrack: hide the intact script_brushmodel and
+// play a vmtype-client shatter scene on the placed ClientSide script_origin (origin+angles in Radiant).
+#define HELI_GLASS_SCENE_PLAYER    "p7_fxanim_cp_newworld_train_glass_03_bundle"
+#define HELI_GLASS_SCENE_NPC       "p7_fxanim_cp_newworld_train_glass_02_bundle"
+#define HELI_WINDOW_ORIGIN_PLAYER  "heli_crash_window_hit_player"
+#define HELI_WINDOW_ORIGIN_NPC     "heli_crash_window_hit_npc"
+#define HELI_WINDOW_BRUSH_PLAYER   "heli_crash_window_brush_player"
+#define HELI_WINDOW_BRUSH_NPC      "heli_crash_window_brush_npc"
+#define HELI_WINDOW_NT_PLAYER      "window_hit_player"   // crash-anim notetrack for the player pane (~15.74s / frame 472)
+#define HELI_WINDOW_NT_NPC         "window_hit"          // existing crash-anim notetrack for the NPC pane (~15.32s / frame 460)
+
 // Shared heli_fx clientfield states — GSC sets them, CSC reacts, so they must match.
 #define HELI_FX_FLYING      1   // rotor blur
 #define HELI_FX_CRASHING    2   // + fire trail on tag_deathfx
@@ -8,6 +21,7 @@
 // short linear MoveTo pieces (smooth), with the model banking into its turns. No baked fly-in anim
 // exists (BO1 did it with a vehicle path).
 #define FLYBY_SPEED_UPS     500    // fly-in speed (units/sec); piece durations derived from length
+#define FLYBY_ARRIVE_UPS    250    // speed (units/sec) at the end of the braking tail; eased down from cruise (lower = slower crawl at arrival)
 #define FLYBY_SEG_LEN       120    // spline sample step (units per MoveTo piece); smaller = smoother
 #define FLYBY_PITCH_FWD     15.0   // nose-down forward lean while cruising
 #define FLYBY_BANK_PER_DEG  1.5    // model roll (deg) per deg of per-piece yaw change (flip sign if reversed)
@@ -17,8 +31,7 @@
 // nose flares up (brake), then settles level for the handoff.
 #define FLYBY_LEVEL_FRAC    0.80   // path fraction after which the braking/flare tail begins
 #define FLYBY_PITCH_BRAKE   12.0   // nose-up flare angle at the peak of the brake
-#define FLYBY_FLARE_PEAK    0.5    // split of the brake time between nose-up and settle (0..1)
-#define FLYBY_FLARE_EASE    0.4    // ease-in/out fraction on the flare rotations (0..0.5); higher = softer
+#define FLYBY_FLARE_PEAK    0.5    // split of the braking tail between nose-up and settle (0..1)
 #define HELI_YAW_OFFSET     0      // free-heli nose = its own angles.yaw; add 180 if it flies backward, +/-90 if sideways
 
 // First-person ride: the player's view links to the heli's ride tag (clamped free-look). The player

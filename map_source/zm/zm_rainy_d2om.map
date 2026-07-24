@@ -5,7 +5,7 @@ iwmap 4
 "The Map" flags expanded 
 // entity 0
 {
-guid "{9BCC1765-8387-11F1-B50B-B5785ECCC203}"
+guid "{AE934F72-8785-11F1-B50D-F484D76E2639}"
 "classname" "worldspawn"
 "lightingquality" "1024"
 "samplescale" "1"
@@ -896,15 +896,6 @@ guid "{D1308BF0-7BC6-4B26-A6DB-25C6F501597D}"
 }
 // entity 32
 {
-guid "{B7A12633-7A30-11F1-B502-C4C30FFAD1C1}"
-"classname" "script_origin"
-"origin" "672 -544 0"
-"targetname" "bodycam_test"
-"_color" "0.4 0 0.8"
-"client_server" "ClientSide"
-}
-// entity 33
-{
 guid "{96C07BCD-7AF8-11F1-B503-961334DF1B9B}"
 "classname" "misc_model"
 "model" "p7_mp_vld_vista_radio_tower_01"
@@ -916,14 +907,14 @@ guid "{96C07BCD-7AF8-11F1-B503-961334DF1B9B}"
 "lightingstate4" "1"
 "static" "1"
 }
-// entity 34
+// entity 33
 {
 guid "{6619B84E-7D86-11F1-B505-AE99807E95E9}"
 "classname" "misc_prefab"
 "model" "_prefabs/zm/zm_rainy_d2om/zipline.map"
 "origin" "-644 -699 47"
 }
-// entity 35
+// entity 34
 {
 guid "{BD187CC0-7D86-11F1-B505-AE99807E95E9}"
 "classname" "misc_prefab"
@@ -931,7 +922,7 @@ guid "{BD187CC0-7D86-11F1-B505-AE99807E95E9}"
 "model" "_prefabs/zm/zm_rainy_d2om/zipline.map"
 "origin" "-640.761 -390.461 47"
 }
-// entity 36
+// entity 35
 {
 guid "{6C140F41-7E40-11F1-B506-E0AB3214356A}"
 "classname" "trigger_use"
@@ -950,7 +941,7 @@ guid "{6C140F41-7E40-11F1-B506-E0AB3214356A}"
  ( -620.49597 -548.22498 298 ) ( -626.24597 -516.72498 298 ) ( -626.24597 -516.72498 282 ) trigger 62.949181 -64 -3.2484179 0 180 0 lightmap_gray 16114.99 -16384 -3.2484179 0 180 0
 }
 }
-// entity 37
+// entity 36
 {
 guid "{6C140F44-7E40-11F1-B506-E0AB3214356A}"
 "classname" "script_struct"
@@ -959,7 +950,7 @@ guid "{6C140F44-7E40-11F1-B506-E0AB3214356A}"
 "targetname" "auto2"
 "_color" "1 0 0"
 }
-// entity 38
+// entity 37
 {
 guid "{6C140F47-7E40-11F1-B506-E0AB3214356A}"
 "classname" "script_struct"
@@ -969,7 +960,7 @@ guid "{6C140F47-7E40-11F1-B506-E0AB3214356A}"
 "targetname" "auto1"
 "_color" "1 0 0"
 }
-// entity 39
+// entity 38
 {
 guid "{D339EC6B-83E3-4A06-92C9-08858FF94617}"
 "classname" "misc_prefab"
@@ -978,7 +969,7 @@ guid "{D339EC6B-83E3-4A06-92C9-08858FF94617}"
 "origin" "936 259 0"
 "script_string" "zclassic_perks_start_room"
 }
-// entity 40
+// entity 39
 {
 guid "{67D3D8D6-8160-11F1-B506-E0AB3214356A}"
 "classname" "fx"
@@ -991,50 +982,7 @@ guid "{67D3D8D6-8160-11F1-B506-E0AB3214356A}"
 "primaryLightFraction" "1"
 "timescale" "1"
 }
-// entity 41
-{
-guid "{AAFC7A00-82FE-11F1-B50A-B153BFED9928}"
-"classname" "script_origin"
-"angles" "0 314.999 0"
-"client_server" "ServerSide"
-"origin" "-1232 1076 1800"
-"target" "auto3"
-"targetname" "heli_intro_spawn"
-"_color" "0.4 0 0.8"
-}
-// entity 42
-{
-guid "{15FF361F-8383-11F1-B50B-B5785ECCC203}"
-"classname" "script_origin"
-"angles" "0 44.9999 0"
-"client_server" "ServerSide"
-"origin" "88 568 1800"
-"target" "auto7"
-"targetname" "auto3"
-"_color" "0.4 0 0.8"
-}
-// entity 43
-{
-guid "{15FF362A-8383-11F1-B50B-B5785ECCC203}"
-"classname" "script_origin"
-"angles" "0 44.9999 0"
-"client_server" "ServerSide"
-"origin" "776 -380 1800"
-"target" "auto8"
-"targetname" "auto7"
-"_color" "0.4 0 0.8"
-}
-// entity 44
-{
-guid "{15FF3635-8383-11F1-B50B-B5785ECCC203}"
-"classname" "script_origin"
-"angles" "0 44.9999 0"
-"client_server" "ServerSide"
-"origin" "1296 -876 1800"
-"targetname" "auto8"
-"_color" "0.4 0 0.8"
-}
-// entity 45
+// entity 40
 {
 guid "{9BCC176C-8387-11F1-B50B-B5785ECCC203}"
 "classname" "misc_model"
@@ -1046,4 +994,10 @@ guid "{9BCC176C-8387-11F1-B50B-B5785ECCC203}"
 "lightingstate3" "1"
 "lightingstate4" "1"
 "static" "1"
+}
+// entity 41
+{
+guid "{AE934F9E-8785-11F1-B50D-F484D76E2639}"
+"classname" "misc_prefab"
+"model" "_prefabs/zm/zm_rainy_d2om/heli_scene.map"
 }

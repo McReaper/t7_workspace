@@ -23,7 +23,9 @@
 #precache("script_bundle", "cin_rappel_npc1");
 #precache("script_bundle", "cin_rappel_npc2");
 #precache("script_bundle", "cin_pilot");
-#precache("script_bundle", "cin_pilot_player");   // precaches player_huey_pilot1_idle_loop1
+#precache("script_bundle", "cin_pilot_player");
+#precache("script_bundle", HELI_GLASS_SCENE_PLAYER);
+#precache("script_bundle", HELI_GLASS_SCENE_NPC);
 #precache("xcam", "rappel_cam");
 
 #namespace heli_test;
@@ -64,6 +66,36 @@ function private _snd_out()
     self clientfield::set("heli_snd", 0);
 }
 
+// Each building-window pane breaks on its own crash-anim notetrack (self-notified on the animating
+// heli): the player side and the NPC rappeller's side.
+function private _glass_out()
+{
+    self endon("death");
+    level endon("end_game");
+    self thread _shatter_on_note(HELI_WINDOW_NT_PLAYER, HELI_WINDOW_ORIGIN_PLAYER, HELI_WINDOW_BRUSH_PLAYER, HELI_GLASS_SCENE_PLAYER);
+    self thread _shatter_on_note(HELI_WINDOW_NT_NPC, HELI_WINDOW_ORIGIN_NPC, HELI_WINDOW_BRUSH_NPC, HELI_GLASS_SCENE_NPC);
+}
+
+// On its notetrack, hide the intact pane (script_brushmodel) and play the shatter bundle on the placed
+// ClientSide script_origin (its server object spawns the shattered pane + shatter anim).
+function private _shatter_on_note(str_note, str_origin, str_brush, str_scene)
+{
+    self endon("death");
+    level endon("end_game");
+    self waittill(str_note);
+    s_origin = _get_node(str_origin);
+    if (isdefined(s_origin))
+    {
+        s_origin thread scene::play(str_scene);
+    }
+    WAIT_SERVER_FRAME;
+    brush = _get_node(str_brush);
+    if (isdefined(brush))
+    {
+        brush Hide();
+    }
+}
+
 // Crash FX driven CSC via clientfield: a server looping FX can't stop without deleting its host,
 // which would kill the heli mid-anim. Frames: crash_begin 279, heli_impact 550, heli_explo 608.
 function private _crash_fx()
@@ -91,21 +123,55 @@ function private _get_node(str_targetname)
     return node;
 }
 
-// Ordered point list of the heli_intro_spawn target chain (any node count).
-function private _flyby_path()
+// Ordered node list of the heli_intro_spawn target chain (any node count).
+function private _flyby_nodes()
 {
-    a_pts = [];
+    a_nodes = [];
     node = _get_node("heli_intro_spawn");
     while (isdefined(node))
     {
-        a_pts[a_pts.size] = node.origin;
+        a_nodes[a_nodes.size] = node;
         if (!isdefined(node.target))
         {
             break;
         }
         node = _get_node(node.target);
     }
+    return a_nodes;
+}
+
+// Ordered point list of the chain (the flight path).
+function private _flyby_path()
+{
+    a_pts = [];
+    foreach (node in _flyby_nodes())
+    {
+        a_pts[a_pts.size] = node.origin;
+    }
     return a_pts;
+}
+
+// Whole-server-frame count to travel dist at speed (min 1), so MoveTo and wait land on the same
+// frame — else the heli is read mid-move and pauses/recoils at each joint.
+function private _frames_for(dist, speed)
+{
+    frames = Int(dist / speed / SERVER_FRAME + 0.5);
+    if (frames < 1)
+    {
+        frames = 1;
+    }
+    return frames;
+}
+
+// Heli nose yaw eased toward the travel direction (FLYBY_YAW_SMOOTH); holds prev_yaw on a null move.
+function private _yaw_toward(prev_yaw, dir)
+{
+    target_yaw = prev_yaw;
+    if (LengthSquared(dir) > 0.01)
+    {
+        target_yaw = VectorToAngles(dir)[1];
+    }
+    return prev_yaw + AngleClamp180(target_yaw - prev_yaw) * FLYBY_YAW_SMOOTH;
 }
 
 // Catmull-Rom position along the point list at global param t in [0, count-1].
@@ -135,6 +201,17 @@ function private _flyby(heli, a_pts)
 
     n = a_pts.size;
     start_yaw = VectorToAngles(a_pts[1] - a_pts[0])[1];
+
+    // Arrival heading = the last path node's authored angle (Radiant); the braking tail turns the
+    // heli onto it so it finishes exactly there, and the crash scene anchors on that same heading.
+    a_nodes = _flyby_nodes();
+    last_node = a_nodes[a_nodes.size - 1];
+    arrive_yaw = undefined;
+    if (isdefined(last_node) && isdefined(last_node.angles))
+    {
+        arrive_yaw = last_node.angles[1];
+    }
+
     heli.origin = a_pts[0];
     heli.angles = (FLYBY_PITCH_FWD, start_yaw + HELI_YAW_OFFSET, 0);
     _spawn_riders(heli);
@@ -160,21 +237,10 @@ function private _flyby(heli, a_pts)
         pos = _spline_pos(a_pts, (n - 1) * (i / num_pieces));
         dir = pos - prev_pos;
 
-        target_yaw = prev_yaw;
-        if (LengthSquared(dir) > 0.01)
-        {
-            target_yaw = VectorToAngles(dir)[1];
-        }
-        yaw = prev_yaw + AngleClamp180(target_yaw - prev_yaw) * FLYBY_YAW_SMOOTH;
+        yaw = _yaw_toward(prev_yaw, dir);
         roll = math::clamp(-1 * FLYBY_BANK_PER_DEG * AngleClamp180(yaw - prev_yaw), -1 * FLYBY_BANK_MAX, FLYBY_BANK_MAX);
 
-        // Snap to whole server frames so MoveTo and wait line up (else the heli pauses each joint).
-        frames = Int(Length(dir) / FLYBY_SPEED_UPS / SERVER_FRAME + 0.5);
-        if (frames < 1)
-        {
-            frames = 1;
-        }
-        t_seg = frames * SERVER_FRAME;
+        t_seg = _frames_for(Length(dir), FLYBY_SPEED_UPS) * SERVER_FRAME;
 
         heli MoveTo(pos, t_seg);
         heli RotateTo((FLYBY_PITCH_FWD, yaw + HELI_YAW_OFFSET, roll), t_seg);
@@ -184,31 +250,73 @@ function private _flyby(heli, a_pts)
         prev_yaw = yaw;
     }
 
-    // Brake to a stop. Linear MoveTo lands exactly on the node — the pure-decel form
-    // (MoveTo(end_pos, t, 0, t)) overshot and settled back over the handoff frames, which read as the
-    // heli recoiling backward. The nose-up flare carries the braking feel instead.
-    end_pos = a_pts[n - 1];
-    final_yaw = prev_yaw;
-    if (LengthSquared(end_pos - prev_pos) > 0.01)
+    // Braking tail: keep following the spline through the remaining nodes. A single straight MoveTo
+    // to the final node cut across the last curve (brutal Last-2 -> Last-1 jump) and halved the speed
+    // in one step (weird slowdown). Instead ease the speed down over the tail pieces while staying on
+    // the curve, folding the nose-up flare into the same per-piece rotation so the arrival decelerates
+    // smoothly onto the final node. Two-pass: precompute the pieces so the recenter spans the tail.
+    tail_count = num_pieces - brake_piece;
+    if (tail_count < 1)
     {
-        final_yaw = VectorToAngles(end_pos - prev_pos)[1];
+        tail_count = 1;
     }
 
-    // Snap to whole server frames (like the cruise) so wait and MoveTo end on the same frame — else
-    // the heli is read mid-move at the handoff (~1 frame of travel) and reads as a small recoil.
-    brake_frames = Int(2 * Distance(prev_pos, end_pos) / FLYBY_SPEED_UPS / SERVER_FRAME + 0.5);
-    if (brake_frames < 1)
+    a_tpos = [];
+    a_tang = [];
+    a_ttime = [];
+    brake_time = 0;
+    for (i = 1; i <= tail_count; i++)
     {
-        brake_frames = 1;
+        piece = brake_piece + i;
+        pos = _spline_pos(a_pts, (n - 1) * (piece / num_pieces));
+        dir = pos - prev_pos;
+        p = i / tail_count;
+
+        // Follow the curve tangent, then blend the heading onto the last node's authored arrival angle
+        // so the heli finishes exactly on it (p=1 lands on arrive_yaw).
+        yaw = _yaw_toward(prev_yaw, dir);
+        if (isdefined(arrive_yaw))
+        {
+            yaw = yaw + AngleClamp180(arrive_yaw - yaw) * p;
+        }
+        // Level the wings out as the tail settles (roll -> 0 at p=1) to match the level crash pose.
+        roll = math::clamp(-1 * FLYBY_BANK_PER_DEG * AngleClamp180(yaw - prev_yaw), -1 * FLYBY_BANK_MAX, FLYBY_BANK_MAX) * (1 - p);
+
+        // Nose flares up then settles level across the tail (nose-down cruise -> nose-up -> level).
+        if (p <= FLYBY_FLARE_PEAK)
+        {
+            pitch = FLYBY_PITCH_FWD + (-1 * FLYBY_PITCH_BRAKE - FLYBY_PITCH_FWD) * (p / FLYBY_FLARE_PEAK);
+        }
+        else
+        {
+            pitch = -1 * FLYBY_PITCH_BRAKE + FLYBY_PITCH_BRAKE * ((p - FLYBY_FLARE_PEAK) / (1 - FLYBY_FLARE_PEAK));
+        }
+
+        // Smoothstep the cruise speed down to the arrival speed (no abrupt halving at the tail start).
+        s = p * p * (3 - 2 * p);
+        speed = FLYBY_SPEED_UPS + (FLYBY_ARRIVE_UPS - FLYBY_SPEED_UPS) * s;
+        t_seg = _frames_for(Length(dir), speed) * SERVER_FRAME;
+
+        a_tpos[a_tpos.size] = pos;
+        a_tang[a_tang.size] = (pitch, yaw + HELI_YAW_OFFSET, roll);
+        a_ttime[a_ttime.size] = t_seg;
+        brake_time += t_seg;
+
+        prev_pos = pos;
+        prev_yaw = yaw;
     }
-    brake_time = brake_frames * SERVER_FRAME;
-    heli MoveTo(end_pos, brake_time);
-    heli thread _flare(final_yaw + HELI_YAW_OFFSET, brake_time);
+
     if (FLYBY_RECENTER)
     {
         _recenter_ride_view(brake_time);
     }
-    wait(brake_time);
+
+    for (i = 0; i < a_tpos.size; i++)
+    {
+        heli MoveTo(a_tpos[i], a_ttime[i]);
+        heli RotateTo(a_tang[i], a_ttime[i]);
+        wait(a_ttime[i]);
+    }
 
     // Wait until the heli is actually at rest before handing off: MoveTo leaves ~1 frame of residual
     // travel past its wait, which the scene handoff would read as the heli recoiling to its final pose.
@@ -240,20 +348,6 @@ function private _recenter_ride_view(lerp_time)
             player LerpViewAngleClamp(lerp_time, ease, ease, 0, 0, 0, 0);
         }
     }
-}
-
-// Nose flares up then settles level over the brake time (eased), on the heli independently so the
-// arrival transition can overlap the brake.
-function private _flare(yaw, brake_time)
-{
-    self endon("death");
-    level endon("end_game");
-
-    up_time = brake_time * FLYBY_FLARE_PEAK;
-    down_time = brake_time - up_time;
-    self RotateTo((-1 * FLYBY_PITCH_BRAKE, yaw, 0), up_time, up_time * FLYBY_FLARE_EASE, up_time * FLYBY_FLARE_EASE);
-    wait(up_time);
-    self RotateTo((0, yaw, 0), down_time, down_time * FLYBY_FLARE_EASE, down_time * FLYBY_FLARE_EASE);
 }
 
 // Pilot (on tag_driver) + the player's own body (on the ride tag), linked to the heli tags via
@@ -409,6 +503,7 @@ function private _play()
         
         crash_heli thread _snd_out();
         crash_heli thread _crash_fx();
+        crash_heli thread _glass_out();
         align thread scene::play("cin_heli_crash", crash_heli);
 
         // Overlap: hold the flown heli + FX + riders + ride camera while the crash anim anchors, then
