@@ -60,6 +60,9 @@
 // BO1 huey rappel intro (heli_intro::play(); debug console trigger via DEBUG_HELI_INTRO).
 #using scripts\zm\_heli_intro;
 
+// MW3 hand-inspection / get-up viewmodel anim (recovery::play(); trigger via DEBUG_RECOVERY).
+#using scripts\zm\_recovery;
+
 // *****************************************************************************
 // MAIN
 // *****************************************************************************

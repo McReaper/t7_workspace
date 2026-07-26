@@ -56,3 +56,4 @@ BO3 has its own vocabulary. Cross-game intuitions (other CoD titles, generic eng
 ## This install
 
 - Raw mod-tools root: `D:\SteamLibrary\steamapps\common\Call of Duty Black Ops III` (this file's directory) — already confirmed present, no need to search for it again.
+- `_maya/` — **DCC-side tooling: scripts that run inside Maya, not in the game.** Put anything driven from a Maya shelf button here (retarget setup, post-bake cleanup, rig probes). Conventions: standalone Python, `maya.cmds` / `maya.api.OpenMaya` only, no imports between them, invoked as `exec(open(r"...\_maya\<name>.py").read())` so a shelf button is one line. Each script prints numbered phases, aborts without touching the scene if its preconditions fail, and is safe to re-run. Keep rig/anim *assets* out — those belong in `model_export/` and `xanim_export/`; `_maya/` holds only code.
