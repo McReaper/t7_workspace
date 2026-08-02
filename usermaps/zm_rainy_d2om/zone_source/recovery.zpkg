@@ -1,14 +1,18 @@
-// MW3 "Scorched Earth" hand-inspection / get-up viewmodel animation.
-// Source: berlin_sgt_down_recovery_vm (441 frames @ 30fps), retargeted onto
-// c_zom_der_dempsey_viewhands. GDT: source_data/_reapy/recovery.gdt
+// MW3 "Scorched Earth" get-up viewmodel animation - MW3-style playback.
+// berlin_sgt_down_recovery_vm re-exported WITH tag_player. Models ripped from MW3 (Greyhound):
+//   viewhands_player_delta_dirty = the tag_player NODE (animates, the player links to it)
+//   viewhands_delta_dirty        = the first-person viewmodel arms (SetViewModel)
+// GDT: source_data/_reapy/recovery.gdt   |   BINs: model_export/_reapy/recovery/, xanim_export/_reapy/recovery/
 //
-// Played through a weapon, the same way zm_test drives t6_deathanim: the
-// weapon's raise/idle slots all point at the anim, so switching to it plays
-// the clip on the viewhands. The weapon pulls its own dependencies
-// (wpn_t7_none_view/world, vm_ap9_ads_base_*, hud_us_grenade) automatically.
+// Mechanism (_recovery.gsc): PlayerLinkToDelta the player to the node's tag_player; the node plays the
+// clip via the camera-less cin_recovery_fp scene bundle. Materials are NOT cabled yet (PoC) - the arms
+// render with a default material until the 3 mtl_viewmodel_delta_* materials are added.
 
 scriptparsetree,scripts/zm/_recovery.gsc
+scriptparsetree,scripts/zm/_recovery.csc
 
 weapon,berlin_recovery
 
 xanim,berlin_sgt_down_recovery_vm
+
+scriptbundle,cin_recovery_fp
