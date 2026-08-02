@@ -2,28 +2,24 @@
 // then only played by a caller of recovery::play(). 1 = dev iteration (current).
 #define DEBUG_RECOVERY    1
 
-// --- MW3 mechanism -------------------------------------------------------------------------------
-// Link the player to a NODE whose tag_player carries the camera + travel; the node plays the clip via
-// the camera-less cin_recovery_fp scene bundle; the delta viewhands show the arms. Mirrors MW3 _id_72AD.
-// Assets ripped from MW3 (Greyhound) -> recovery.gdt + model_export/_reapy/recovery/.
+// MW3-style get-up (mirrors _id_72AD): the player is linked to a NODE that plays the clip via the
+// camera-less cin_recovery_fp scene bundle; the node's tag carries the camera and the viewhands show the arms.
 
-// The animating node the player links to. Stock BO3 viewhands (clean skinning) - the MW3 Greyhound rig
-// had a broken skinned .bin (5 mesh objects, only some deformed). The BO3-retargeted anim drives it fully.
+// The animating node the player links to: stock BO3 viewhands, driven by the BO3-retargeted anim.
 #define RECOVERY_NODE_MODEL   "c_zom_der_dempsey_viewhands"
 
-// The tag on the rig the player links to (its motion carries the camera). BO3 has no tag_player, but the
-// retargeted anim has tag_view / tag_camera / tag_cambone / tag_torso - any of them works (the MW3
-// tag_player was just a link anchor). The _dbg print compares their heights so you can pick the best.
+// The tag on the rig the player links to - its motion carries the camera. BO3 has no tag_player, so we
+// ride tag_camera.
 #define RECOVERY_LINK_TAG   "tag_camera"
 
 // The camera-less scriptbundle scene that animates the node (object1 = the node, MainAnim = the clip).
 #define RECOVERY_SCENE   "cin_recovery_fp"
 
-// PlayerLinkToDelta puts the player ORIGIN on the linked tag, but tag_player is authored ~60 up (eye
-// level - measured dz~63), which doubles the camera height (eye = origin + 60). So we link to a mount
-// offset DOWN from tag_player by this (PlayerLinkToDelta takes no offset - same trick as _ride_camera's
-// HELI_VIEW_OFFSET). Tune the Z until the camera sits at natural eye height.
-#define RECOVERY_VIEW_OFFSET   ( 0, 0, -60 )
-
-// The grenadeweapon that carries a wpn/none viewmodel context (kept from the old weapon method).
-#define RECOVERY_WEAPON    "berlin_recovery"
+// Lower where the rig PLAYS (world Z) so the downed HANDS reach the floor. The port seats the whole
+// viewhands a bit high, so at the low pose (~frame 100, character down) the hands would hover instead of
+// planting. Negative = down; moves the visible rig AND the camera together (coupled), and only affects the
+// played clip - the body is restored to its real origin on teardown.
+// Value from the frame-100 anim geometry: with tag_view as the ground ref (it maps to the player origin - at
+// standing the camera sits 57 above it, ~eye height), the lowest hand point is ~12 above the floor, so -12
+// plants the hands (-13 seats the palms/wrists, -9 the elbows).
+#define RECOVERY_GROUND_DROP   -12

@@ -5,8 +5,8 @@
 //
 // Why this shape: BO3 viewhands have no tag_player (MW3's link anchor), so we link to an existing tag
 // that carries the motion (RECOVERY_LINK_TAG = tag_camera). PlayerLinkToDelta puts the player ORIGIN on
-// the target tag and takes no position offset, so we go through a mount (LinkTo with RECOVERY_VIEW_OFFSET)
-// to seat the eye at the anim level - the same trick as _heli_intro::_ride_camera.
+// the target tag and takes no position offset, so we go through a mount (LinkTo, dropped by the player's
+// eye height so the eye seats at the anim level) - the same trick as _heli_intro::_ride_camera.
 
 #using scripts\codescripts\struct;
 
@@ -67,23 +67,31 @@ function play()
     org = self.origin;
     ang = self.angles;
 
+    // Where the clip plays. Lowered by RECOVERY_GROUND_DROP so the downed hands reach the floor (the port
+    // seats the rig a bit high). Moving the play anchor drops the visible rig AND the camera together; only
+    // the played clip is affected (the player is re-grounded on teardown).
+    play_org = org + (0, 0, RECOVERY_GROUND_DROP);
+
     // Anchor for the scene (where the clip plays).
-    align = Spawn("script_model", org);
+    align = Spawn("script_model", play_org);
     align SetModel("tag_origin");
     align.angles = ang;
     align NotSolid();
 
     // The rig, spawned as a node the scene bundle animates.
-    node = Spawn("script_model", org);
+    node = Spawn("script_model", play_org);
     node SetModel(RECOVERY_NODE_MODEL);
     node NotSolid();
 
-    // A mount rigidly riding the rig's camera tag, offset so the eye seats at the anim level.
-    // PlayerLinkToDelta puts the player ORIGIN on its target and takes no offset, so we link to this.
+    // The view mount, rigidly riding tag_camera. PlayerLinkToDelta puts the player ORIGIN on its target and
+    // the engine re-adds the player's own eye height, so drop the mount by that height (via
+    // GetPlayerViewHeight - no magic 60) so the eye seats at the anim level. Same trick as
+    // _heli_intro::_ride_camera.
+    view_offset = ( 0, 0, -1 * self GetPlayerViewHeight() );
     mount = Spawn("script_model", node GetTagOrigin(RECOVERY_LINK_TAG));
     mount SetModel("tag_origin");
     mount NotSolid();
-    mount LinkTo(node, RECOVERY_LINK_TAG, RECOVERY_VIEW_OFFSET, (0, 0, 0));
+    mount LinkTo(node, RECOVERY_LINK_TAG, view_offset, (0, 0, 0));
 
     // Hand control over, then link the player's view to the mount (which rides RECOVERY_LINK_TAG).
     self DisableWeapons();
@@ -95,11 +103,13 @@ function play()
     // Play the clip on the node (blocks until it ends).
     align scene::play(RECOVERY_SCENE, node);
 
-    // Teardown. Drop the body back where it started (the link teleported it onto the mount, off the
-    // ground, so it would fall on unlink - same reason _heli_intro grounds the player at its handoff).
+    // Teardown. The get-up travels ~100 units, so end the player WHERE the clip finishes, not where it
+    // started: the link has already carried the body to the final spot (its X,Y), so keep that and just
+    // plant the feet back on the floor (the link left them at camera height, off the ground). The view is
+    // deliberately NOT reset - control returns seamlessly facing where the get-up's camera ended.
+    end = self.origin;
     self Unlink();
-    self SetOrigin(org);
-    self SetPlayerAngles(ang);
+    self SetOrigin((end[0], end[1], org[2]));
     self AllowProne(true);
     self AllowCrouch(true);
     self EnableOffhandWeapons();
