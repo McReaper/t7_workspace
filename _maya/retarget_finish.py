@@ -1,44 +1,17 @@
 """
 Post-bake conversion. Run AFTER the bake shelf button, BEFORE exporting.
 
-  1. checks the bake actually landed (target joints must own keys now)
-  2. deletes every constraint, so the baked curves play on their own
-  3. zeroes MW3's constant tag_torso rotation      (FLATTEN_TORSO)
-  4. strips the bo3_ prefix
+  1.  checks the bake actually landed (target joints must own keys now)
+  2.  deletes every constraint, so the baked curves play on their own
+  3.  zeroes MW3's constant tag_torso rotation             (FLATTEN_TORSO)
+  3c. spreads the forearm twist across j_wristtwist1..6     (DISTRIBUTE_TWIST)
+  4.  strips the bo3_ prefix
 
 Step 4 is not optional: the prefix only existed to stop the Cast anim importer
 choking on duplicate short names between the two rigs. An xanim exported with
 bones called bo3_j_wrist_le binds to no model at all.
 
 Safe to re-run; each phase is a no-op once done.
-
---------------------------------------------------------------------------------
-What the engine actually reads, established by measurement:
-
-  * View POSITION comes from tag_view, which the engine parks on the player's
-    eye. tag_camera / tag_cambone only supply a DIRECTION - every working
-    reference pins both at (0,0,0) with zero amplitude, so their position cannot
-    be load-bearing. Translating tag_camera changes nothing on screen, and
-    neither does translating tag_torso. If the hands need repositioning
-    relative to the view, do it on an animation layer - this script no longer
-    ships a constant-offset knob, because none of them reproduced reliably.
-  * The viewmodel hangs off tag_torso, and BO3 expects that torso at identity.
-    MW3 keeps it permanently pivoted (a constant ~(101.7, 8.2, 68.0) local to
-    tag_ads) and authors the arms in that frame; orientConstraint -mo copies the
-    convention faithfully, and that constant ~100 deg is what rendered as "arms
-    rotated 90 degrees in game". Phase 3 is the fix.
-
-Dead ends, all measured, none of which helped - do not repeat:
-
-  clear tag_view + tag_ads          -> no change, arms still offset
-  rebase per-frame onto the camera  -> view frozen, hands ~12 units below the
-                                       view axis, invisible
-  + pin torso to camera             -> arms gone entirely
-  rebase by constant inv(camera@0)  -> view detached from the body
-  translate tag_camera              -> no visible effect at all
-
-The world placement was never the problem, and neither was the camera.
---------------------------------------------------------------------------------
 """
 import math
 import maya.cmds as cmds
@@ -47,7 +20,6 @@ from maya.api import OpenMaya as om
 DST_ROOT = "Joints1"
 PREFIX = "bo3_"
 FLATTEN_TORSO = True     # zero MW3's constant tag_torso rotation - see flatten_torso
-ZERO_VIEW_TRANSLATION = False  # DANGER: freezes a view whose motion lives in translation (this anim) - see zero_translations
 
 # Spread the forearm twist across the BO3 wrist-twist chain. MW3 has ONE wrist joint; BO3 has
 # j_wristtwist1..6 (siblings under j_elbow) that distribute pronation/supination from elbow to wrist so
@@ -55,18 +27,10 @@ ZERO_VIEW_TRANSLATION = False  # DANGER: freezes a view whose motion lives in tr
 # We extract the wrist's PURE twist (swing-twist decomposition, no bend leak) and key each joint to a
 # fraction of it - the fraction is the joint's REST position along the forearm, from geometry (the
 # numbering is NOT elbow-to-wrist, so an index-based i/N spreads it backwards). TWIST_AXIS = the bone's
-# roll axis (0=X, 1=Y, 2=Z); if the wrist BENDS instead of twisting, change it. Off = the pre-fix look.
+# roll axis (0=X, 1=Y, 2=Z); if the wrist BENDS instead of twisting, change it.
 DISTRIBUTE_TWIST = True
 NUM_TWIST = 6
 TWIST_AXIS = 0
-
-# NOTE (2026-08): distinct from the "clear tag_view" dead-end above. That test
-# cleared tag_view/tag_ads while chasing the ARMS offset and changed nothing there.
-# This phase instead matches the MEASURED stock convention: a working BO3 viewmodel
-# exports NO tag_view and pins tag_camera/tag_cambone at translation (0,0,0); ours
-# ships tag_view at the MW3 world pos (~-1069) and tag_camera offset ~88. The look
-# motion lives in tag_camera's ROTATION and is preserved - only translation is killed.
-
 
 def _one(short):
     hits = [p for p in (cmds.ls(PREFIX + short, long=True) or [])
@@ -148,40 +112,6 @@ def flatten_torso():
           % (before[0], before[1], before[2], after[0], after[1], after[2]))
     print("   %d frames of shoulder motion preserved" % (end - start + 1))
     return max(abs(v) for v in after) < 0.01
-
-
-def zero_translations():
-    """Kill baked TRANSLATION on the view/camera tags; keep their ROTATION.
-
-    Measured against the stock perk_bottle viewmodel (exportx bin->export):
-        stock: no tag_view part at all; tag_cambone/tag_camera OFFSET (0,0,0) every
-               frame; the drink's view motion is carried purely by tag_camera ROT.
-        ours : tag_view PART 0 at world ~(-1069,-46,-7) and moving; tag_cambone
-               follows it; tag_camera ~88 units off tag_view.
-
-    tag_view is the viewmodel root - every child hangs off it, so zeroing its
-    translation slides the whole rig to origin with the relative pose intact (no
-    restore needed, unlike flatten_torso which zeroes ROTATION). tag_camera /
-    tag_cambone are leaf tags: zeroing their translation makes them coincident with
-    the view like stock, while their rotation keys (the look motion) stay untouched.
-    """
-    n = 0
-    for name in ("tag_origin", "tag_view", "tag_cambone", "tag_camera"):
-        j = _one(name)
-        if not j:
-            continue
-        cmds.cutKey(j, clear=True, at=("translateX", "translateY", "translateZ"))
-        for ax in "XYZ":
-            a = "%s.translate%s" % (j, ax)
-            if not cmds.getAttr(a, lock=True):
-                cmds.setAttr(a, 0.0)
-        print("   zeroed translation on %s" % name)
-        n += 1
-    tv = _one("tag_view")
-    if tv:
-        print("   tag_view world now %s"
-              % [round(v, 3) for v in cmds.xform(tv, q=True, ws=True, t=True)])
-    return n
 
 
 def strip_prefix():
@@ -280,11 +210,6 @@ else:
         flatten_torso()
     else:
         print("   skipped (FLATTEN_TORSO = False)")
-    print("\n== 3b. zero view/camera translation ==")
-    if ZERO_VIEW_TRANSLATION:
-        zero_translations()
-    else:
-        print("   skipped (ZERO_VIEW_TRANSLATION = False)")
     print("\n== 3c. distribute wrist twist ==")
     if DISTRIBUTE_TWIST:
         distribute_wrist_twist()
