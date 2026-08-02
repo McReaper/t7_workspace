@@ -40,11 +40,32 @@ Dead ends, all measured, none of which helped - do not repeat:
 The world placement was never the problem, and neither was the camera.
 --------------------------------------------------------------------------------
 """
+import math
 import maya.cmds as cmds
+from maya.api import OpenMaya as om
 
 DST_ROOT = "Joints1"
 PREFIX = "bo3_"
 FLATTEN_TORSO = True     # zero MW3's constant tag_torso rotation - see flatten_torso
+ZERO_VIEW_TRANSLATION = False  # DANGER: freezes a view whose motion lives in translation (this anim) - see zero_translations
+
+# Spread the forearm twist across the BO3 wrist-twist chain. MW3 has ONE wrist joint; BO3 has
+# j_wristtwist1..6 (siblings under j_elbow) that distribute pronation/supination from elbow to wrist so
+# the sleeve doesn't pinch ("candy wrapper"). The retarget only drives j_wrist, so those 6 sit at bind.
+# We extract the wrist's PURE twist (swing-twist decomposition, no bend leak) and key each joint to a
+# fraction of it - the fraction is the joint's REST position along the forearm, from geometry (the
+# numbering is NOT elbow-to-wrist, so an index-based i/N spreads it backwards). TWIST_AXIS = the bone's
+# roll axis (0=X, 1=Y, 2=Z); if the wrist BENDS instead of twisting, change it. Off = the pre-fix look.
+DISTRIBUTE_TWIST = True
+NUM_TWIST = 6
+TWIST_AXIS = 0
+
+# NOTE (2026-08): distinct from the "clear tag_view" dead-end above. That test
+# cleared tag_view/tag_ads while chasing the ARMS offset and changed nothing there.
+# This phase instead matches the MEASURED stock convention: a working BO3 viewmodel
+# exports NO tag_view and pins tag_camera/tag_cambone at translation (0,0,0); ours
+# ships tag_view at the MW3 world pos (~-1069) and tag_camera offset ~88. The look
+# motion lives in tag_camera's ROTATION and is preserved - only translation is killed.
 
 
 def _one(short):
@@ -129,6 +150,40 @@ def flatten_torso():
     return max(abs(v) for v in after) < 0.01
 
 
+def zero_translations():
+    """Kill baked TRANSLATION on the view/camera tags; keep their ROTATION.
+
+    Measured against the stock perk_bottle viewmodel (exportx bin->export):
+        stock: no tag_view part at all; tag_cambone/tag_camera OFFSET (0,0,0) every
+               frame; the drink's view motion is carried purely by tag_camera ROT.
+        ours : tag_view PART 0 at world ~(-1069,-46,-7) and moving; tag_cambone
+               follows it; tag_camera ~88 units off tag_view.
+
+    tag_view is the viewmodel root - every child hangs off it, so zeroing its
+    translation slides the whole rig to origin with the relative pose intact (no
+    restore needed, unlike flatten_torso which zeroes ROTATION). tag_camera /
+    tag_cambone are leaf tags: zeroing their translation makes them coincident with
+    the view like stock, while their rotation keys (the look motion) stay untouched.
+    """
+    n = 0
+    for name in ("tag_origin", "tag_view", "tag_cambone", "tag_camera"):
+        j = _one(name)
+        if not j:
+            continue
+        cmds.cutKey(j, clear=True, at=("translateX", "translateY", "translateZ"))
+        for ax in "XYZ":
+            a = "%s.translate%s" % (j, ax)
+            if not cmds.getAttr(a, lock=True):
+                cmds.setAttr(a, 0.0)
+        print("   zeroed translation on %s" % name)
+        n += 1
+    tv = _one("tag_view")
+    if tv:
+        print("   tag_view world now %s"
+              % [round(v, 3) for v in cmds.xform(tv, q=True, ws=True, t=True)])
+    return n
+
+
 def strip_prefix():
     total = 0
     for _ in range(30):
@@ -159,6 +214,61 @@ def strip_prefix():
     return left == 0
 
 
+def _twist_angle(joint, axis):
+    """Signed twist angle (deg) of the joint's animated rotation around its local axis (0=X/1=Y/2=Z).
+    Swing-twist decomposition: project the quaternion's vector part onto the axis, so only the roll is
+    kept (bend is discarded)."""
+    e = cmds.getAttr(joint + ".rotate")[0]
+    q = om.MEulerRotation(math.radians(e[0]), math.radians(e[1]), math.radians(e[2]),
+                          cmds.getAttr(joint + ".rotateOrder")).asQuaternion()
+    comp = (q.x, q.y, q.z)[axis]
+    return math.degrees(2.0 * math.atan2(comp, q.w))
+
+
+def _set_twist(joint, axis, angle):
+    r = [0.0, 0.0, 0.0]
+    r[axis] = angle
+    for i, ax in enumerate("XYZ"):
+        a = "%s.rotate%s" % (joint, ax)
+        if not cmds.getAttr(a, lock=True):
+            cmds.setAttr(a, r[i])
+    cmds.setKeyframe(joint, at=("rotateX", "rotateY", "rotateZ"))
+
+
+def _pos(node):
+    return om.MVector(*cmds.xform(node, q=True, ws=True, t=True))
+
+
+def distribute_wrist_twist():
+    """Key j_wristtwist1..N to a fraction of the wrist's pure twist, per side, every frame. The fraction
+    is each joint's REST position along the forearm (elbow=0, wrist=1), derived from geometry - the
+    numbering is not elbow-to-wrist order, so an index-based i/N would spread it backwards."""
+    start = int(cmds.playbackOptions(q=True, min=True))
+    end = int(cmds.playbackOptions(q=True, max=True))
+    done = 0
+    for s in ("le", "ri"):
+        elbow = _one("j_elbow_" + s)
+        wrist = _one("j_wrist_" + s)
+        chain = [_one("j_wristtwist%d_%s" % (i, s)) for i in range(1, NUM_TWIST + 1)]
+        if not elbow or not wrist or None in chain:
+            print("      %s: elbow / wrist / j_wristtwist1..%d not found - skipped" % (s, NUM_TWIST))
+            continue
+        # projection fraction along the forearm; pose-invariant, so read it once.
+        ep = _pos(elbow)
+        fwd = _pos(wrist) - ep
+        flen2 = fwd * fwd
+        fracs = [((_pos(tj) - ep) * fwd) / flen2 for tj in chain]
+        for f in range(start, end + 1):
+            cmds.currentTime(f, edit=True)
+            tw = _twist_angle(wrist, TWIST_AXIS)
+            for tj, fr in zip(chain, fracs):
+                _set_twist(tj, TWIST_AXIS, tw * fr)
+        done += 1
+        print("      %s: twist by rest position, fracs [%s]"
+              % (s, ", ".join("%.2f" % fr for fr in fracs)))
+    return done
+
+
 print("\n== 1. bake check ==")
 if not check_bake():
     print("\nABORTED - nothing was changed.")
@@ -170,6 +280,16 @@ else:
         flatten_torso()
     else:
         print("   skipped (FLATTEN_TORSO = False)")
+    print("\n== 3b. zero view/camera translation ==")
+    if ZERO_VIEW_TRANSLATION:
+        zero_translations()
+    else:
+        print("   skipped (ZERO_VIEW_TRANSLATION = False)")
+    print("\n== 3c. distribute wrist twist ==")
+    if DISTRIBUTE_TWIST:
+        distribute_wrist_twist()
+    else:
+        print("   skipped (DISTRIBUTE_TWIST = False)")
     print("\n== 4. strip prefix ==")
     clean = strip_prefix()
     print("\n== done ==  %s" % (
