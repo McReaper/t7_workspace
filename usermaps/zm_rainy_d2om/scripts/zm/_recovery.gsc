@@ -1,12 +1,12 @@
-// MW3-style get-up recovery: link the player to a NODE whose tag_player carries the camera + travel;
-// the node plays the clip (the camera-less cin_recovery_fp scene bundle animates it). Faithful transpose
-// of MW3 berlin _id_72AD (spawn node -> playerlinkto tag_player -> play anim on node -> unlink). Public
-// entry: recovery::play() on a player. Debug console: `recovery 1` (DEBUG_RECOVERY).
+// Recovery get-up viewmodel that drives the first-person camera (MW3 berlin _id_72AD transposed to BO3).
+// A scene bundle animates the rig as a node; the player's view is linked to a mount riding the rig's
+// camera tag, so the eye follows the clip's get-up motion. Public entry: recovery::play() on a player.
+// Debug console: `recovery 1` (DEBUG_RECOVERY).
 //
-// PoC scope: materials not cabled (arms render with a default material), no viewmodel swap yet - first
-// validate that tag_player drives the camera. If the node stays FROZEN (doesn't animate), the fallback
-// is animation::play(%anim) + node UseAnimTree(#animtree) (the heli-rider pattern in _heli_intro, which
-// definitely animates a script_model), with the anim referenced from the generic animtree.
+// Why this shape: BO3 viewhands have no tag_player (MW3's link anchor), so we link to an existing tag
+// that carries the motion (RECOVERY_LINK_TAG = tag_camera). PlayerLinkToDelta puts the player ORIGIN on
+// the target tag and takes no position offset, so we go through a mount (LinkTo with RECOVERY_VIEW_OFFSET)
+// to seat the eye at the anim level - the same trick as _heli_intro::_ride_camera.
 
 #using scripts\codescripts\struct;
 
@@ -58,7 +58,7 @@ function private _watch()
     }
 }
 
-// MW3 mechanism. Call on a player.
+// Play the get-up on a player.
 function play()
 {
     self endon("disconnect");
@@ -67,42 +67,36 @@ function play()
     org = self.origin;
     ang = self.angles;
 
-    // Align anchor for the scene (where the clip plays).
+    // Anchor for the scene (where the clip plays).
     align = Spawn("script_model", org);
     align SetModel("tag_origin");
     align.angles = ang;
     align NotSolid();
 
-    // The node = the MW3 rig WITH tag_player. The scene animates it; its tag_player carries the player.
+    // The rig, spawned as a node the scene bundle animates.
     node = Spawn("script_model", org);
     node SetModel(RECOVERY_NODE_MODEL);
     node NotSolid();
 
-    // A view mount rigidly linked to the node's tag_player with a position offset (PlayerLinkToDelta
-    // takes no offset, so we link the player to this - the _ride_camera trick). The offset drops the eye
-    // back to natural height (tag_player is authored ~60 up, and the link puts the player origin on it).
+    // A mount rigidly riding the rig's camera tag, offset so the eye seats at the anim level.
+    // PlayerLinkToDelta puts the player ORIGIN on its target and takes no offset, so we link to this.
     mount = Spawn("script_model", node GetTagOrigin(RECOVERY_LINK_TAG));
     mount SetModel("tag_origin");
     mount NotSolid();
     mount LinkTo(node, RECOVERY_LINK_TAG, RECOVERY_VIEW_OFFSET, (0, 0, 0));
 
-    // Hand control over, then link the player to the mount (which rides tag_player, offset down).
+    // Hand control over, then link the player's view to the mount (which rides RECOVERY_LINK_TAG).
     self DisableWeapons();
     self DisableOffhandWeapons();
     self AllowCrouch(false);
     self AllowProne(false);
     self PlayerLinkToDelta(mount, "tag_origin", 1, 0, 0, 0, 0);
 
-    // DIAGNOSTIC (dev): where does tag_player sit vs the anchor + the player's real eye height? Tells us
-    // the offset to fix the camera height. Remove once solved.
-    self thread _dbg(node, align);
-
     // Play the clip on the node (blocks until it ends).
     align scene::play(RECOVERY_SCENE, node);
 
-    // Teardown. Drop the body back where it started: PlayerLinkToDelta teleported it onto tag_player
-    // (up high), so without this it falls from that height on unlink (same reason _heli_intro grounds
-    // the player at its handoff).
+    // Teardown. Drop the body back where it started (the link teleported it onto the mount, off the
+    // ground, so it would fall on unlink - same reason _heli_intro grounds the player at its handoff).
     self Unlink();
     self SetOrigin(org);
     self SetPlayerAngles(ang);
@@ -113,27 +107,4 @@ function play()
     mount Delete();
     node Delete();
     align Delete();
-}
-
-// DIAGNOSTIC (dev): compare the key tags' height above the anchor, over the clip.
-//   all three high  -> the whole anim plays too high  -> lower the anchor (or fix retarget height).
-//   player high, view ~60 -> tag_player is offset; link to tag_view instead.
-// (~60 = normal eye height above the feet/anchor.)
-function private _dbg(node, align)
-{
-    self endon("disconnect");
-    for (i = 0; i < 8; i++)
-    {
-        wait(0.35);
-        if (!isdefined(node) || !isdefined(align))
-        {
-            return;
-        }
-        az = align.origin[2];
-        pv = node GetTagOrigin("tag_view");
-        pc = node GetTagOrigin("tag_camera");
-        pb = node GetTagOrigin("tag_cambone");
-        pt = node GetTagOrigin("tag_torso");
-        self IPrintLnBold("dz view=" + Int(pv[2]-az) + " cam=" + Int(pc[2]-az) + " cambone=" + Int(pb[2]-az) + " torso=" + Int(pt[2]-az));
-    }
 }
