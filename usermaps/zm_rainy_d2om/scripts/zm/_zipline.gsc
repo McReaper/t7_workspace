@@ -8,6 +8,8 @@
 #using scripts\shared\system_shared;
 #using scripts\shared\util_shared;
 
+#using scripts\zm\_view_stance;
+
 #insert scripts\shared\shared.gsh;
 #insert scripts\shared\version.gsh;
 #insert scripts\zm\_zipline.gsh;
@@ -86,6 +88,10 @@ function private _ride(start_struct, end_struct, trigger)
     trigger TriggerEnable(false);
     WAIT_SERVER_FRAME;
 
+    // Stand up before linking: the linked view sits at align_model plus the rider's own stance-driven eye
+    // height, so boarding from crouch/prone glides the whole cable at that lower height.
+    view_stance::lock_standing(array(self));
+
     align_model = Spawn("script_model", start_struct.origin - (0, 0, ZIPLINE_HANG_OFFSET));
     align_model SetModel("tag_origin");
     align_model.angles = VectorToAngles(end_struct.origin - start_struct.origin);
@@ -105,8 +111,6 @@ function private _ride(start_struct, end_struct, trigger)
     // FreezeControls doesn't survive the link; disable actions granularly instead.
     self DisableWeapons();
     self DisableOffhandWeapons();
-    self AllowCrouch(false);
-    self AllowProne(false);
 
     clone = util::spawn_player_clone(self);
     clone NotSolid();

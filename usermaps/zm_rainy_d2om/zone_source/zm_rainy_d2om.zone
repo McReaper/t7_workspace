@@ -19,6 +19,9 @@ sound,zm_rainy_d2om
 scriptparsetree,scripts/zm/zm_rainy_d2om.gsc
 scriptparsetree,scripts/zm/zm_rainy_d2om.csc
 
+// Shared stance/view-height helper for the linked-camera sequences (heli intro, zipline, recovery).
+scriptparsetree,scripts/zm/_view_stance.gsc
+
 // Bodycam camera filter
 scriptparsetree,scripts/zm/_cam_bodycam.gsc
 scriptparsetree,scripts/zm/_cam_bodycam.csc

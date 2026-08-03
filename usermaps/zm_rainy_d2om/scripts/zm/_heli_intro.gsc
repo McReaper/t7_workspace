@@ -10,6 +10,8 @@
 #using scripts\shared\system_shared;
 #using scripts\shared\util_shared;
 
+#using scripts\zm\_view_stance;
+
 #insert scripts\shared\shared.gsh;
 #insert scripts\shared\version.gsh;
 #insert scripts\zm\_heli_intro.gsh;
@@ -591,7 +593,7 @@ function private _seat_copilot(crash_heli)
 
 // First-person ride: link each player's view to the heli's ride tag with clamped free-look, so they
 // ride inside the heli and follow its motion+rotation. Granular locks replace FreezeControls
-// (doesn't survive a link).
+// (doesn't survive a link). Blocks a few frames standing the riders up before the link.
 function private _ride_camera(heli)
 {
     // A view mount linked to the ride tag with a local offset — PlayerLinkToDelta takes no position
@@ -603,8 +605,19 @@ function private _ride_camera(heli)
     level.heli_intro_view_mount = mount;
 
     level.heli_intro_players = GetPlayers();
+
+    // Stand the riders up and let their eyes settle BEFORE the link: the linked view sits at the mount plus
+    // each player's own stance-driven eye height, so anyone crouched at takeoff watches their view slide up
+    // from the floor over the ride's first frames as the engine stands them back up.
+    view_stance::lock_standing(level.heli_intro_players);
+
     foreach (player in level.heli_intro_players)
     {
+        if (!isdefined(player))
+        {
+            continue;
+        }
+
         // Save the map origin — the link teleports the body onto the heli, so we drop it back
         // grounded at the handoff (else it falls to its death).
         player.heli_intro_org = player.origin;
@@ -612,8 +625,6 @@ function private _ride_camera(heli)
 
         player DisableWeapons();
         player DisableOffhandWeapons();
-        player AllowCrouch(false);
-        player AllowProne(false);
         player setClientUIVisibilityFlag("hud_visible", 0);
         player Ghost();
         player PlayerLinkToDelta(mount, "tag_origin", 1, FLYBY_LOOK_RIGHT, FLYBY_LOOK_LEFT, FLYBY_LOOK_UP, FLYBY_LOOK_DOWN);

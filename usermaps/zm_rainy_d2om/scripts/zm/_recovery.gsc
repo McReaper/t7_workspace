@@ -13,13 +13,16 @@
 // Why this shape: BO3 viewhands have no tag_player (MW3's link anchor), so we link to an existing tag
 // that carries the motion (RECOVERY_LINK_TAG = tag_camera). PlayerLinkToDelta puts the player ORIGIN on
 // the target tag and takes no position offset, so we go through a mount (LinkTo, dropped by the player's
-// eye height so the eye seats at the anim level) - the same trick as _heli_intro::_ride_camera.
+// eye height so the eye seats at the anim level) - the same trick as _heli_intro::_ride_camera. That eye
+// height is stance-driven, so the player is stood up and settled first (view_stance::lock_standing).
 
 #using scripts\codescripts\struct;
 
 #using scripts\shared\scene_shared;
 #using scripts\shared\system_shared;
 #using scripts\shared\util_shared;
+
+#using scripts\zm\_view_stance;
 
 #insert scripts\shared\shared.gsh;
 #insert scripts\shared\version.gsh;
@@ -75,6 +78,21 @@ function play()
     }
     self.recovery_active = true;
 
+    // Stand up and let the eye settle BEFORE anything reads it: view_offset below is derived from
+    // GetPlayerViewHeight(), and the link re-adds whatever that height is at the time. Sampled crouched or
+    // proned it under-drops the mount, seating the camera that much ABOVE the clip - which reads in-game as
+    // the arms sunk into the floor.
+    view_stance::lock_standing(array(self));
+    if (!isdefined(self))
+    {
+        return;
+    }
+    if (!IsAlive(self))
+    {
+        self.recovery_active = undefined;
+        return;
+    }
+
     org = self.origin;
     ang = self.angles;
 
@@ -110,8 +128,6 @@ function play()
     // Hand control over, then link the player's view to the mount (which rides RECOVERY_LINK_TAG).
     self DisableWeapons();
     self DisableOffhandWeapons();
-    self AllowCrouch(false);
-    self AllowProne(false);
     self PlayerLinkToDelta(mount, "tag_origin", 1, 0, 0, 0, 0);
 
     // Lifecycle + guaranteed teardown, owned by align (survives a disconnect).
