@@ -30,3 +30,6 @@ include,zipline
 
 // BO1 huey rappel intro (heli.gdt + heli_scenes.gdt). Debug console: heli_intro 1 (DEBUG_HELI_INTRO).
 include,heli
+
+// MW3 hand-inspection / get-up viewmodel anim (recovery.gdt), played via a weapon.
+include,recovery

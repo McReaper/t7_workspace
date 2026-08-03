@@ -1,0 +1,11 @@
+// Recovery get-up viewmodel (MW3 berlin _id_72AD transposed to BO3). The player links to a node that plays
+// berlin_sgt_down_recovery_vm via the camera-less cin_recovery_fp scene bundle; the node is stock BO3
+// viewhands (c_zom_der_dempsey_viewhands) driven by the retargeted anim. Mechanism: scripts/zm/_recovery.gsc.
+// GDT: source_data/_reapy/recovery.gdt  |  BINs: model_export/_reapy/recovery/, xanim_export/_reapy/recovery/
+
+scriptparsetree,scripts/zm/_recovery.gsc
+scriptparsetree,scripts/zm/_recovery.csc
+
+xanim,berlin_sgt_down_recovery_vm
+
+scriptbundle,cin_recovery_fp

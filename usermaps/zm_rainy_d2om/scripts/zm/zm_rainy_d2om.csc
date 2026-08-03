@@ -45,6 +45,9 @@
 // BO1 heli rappel intro — client half in _heli_intro.csc (rappel_cam XCam).
 #using scripts\zm\_heli_intro;
 
+// Recovery viewmodel — client half in _recovery.csc (a no-op stub; the mechanism is server-side).
+#using scripts\zm\_recovery;
+
 function main()
 {
     LuiLoad("ui.uieditor.widgets.mphudwidgets.cursorhint_image_zipline");
