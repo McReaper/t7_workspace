@@ -17,6 +17,7 @@ radiant/autosave_backup
 *.bin
 *.obj
 *.pri
+*.pyc
 
 # Compiled map files
 *.xpak
